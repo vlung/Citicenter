@@ -1,0 +1,7 @@
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\bin\Debug\MyTM.exe
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\bin\Debug\MyTM.pdb
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\bin\Debug\TP.dll
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\bin\Debug\TP.pdb
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\obj\x86\Debug\MyTM.exe
+C:\Users\soroush\Downloads\csep545-project\cs\MyTM\obj\x86\Debug\MyTM.pdb

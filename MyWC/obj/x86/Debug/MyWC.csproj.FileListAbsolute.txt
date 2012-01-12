@@ -1,0 +1,7 @@
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\bin\Debug\MyWC.exe
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\bin\Debug\MyWC.pdb
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\bin\Debug\TP.dll
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\bin\Debug\TP.pdb
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\obj\x86\Debug\MyWC.exe
+C:\Users\soroush\Downloads\csep545-project\cs\MyWC\obj\x86\Debug\MyWC.pdb
