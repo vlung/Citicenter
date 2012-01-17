@@ -1,0 +1,8 @@
+# VS user specific files #
+##########################
+*.suo
+
+# Build output folders #
+########################
+/**/bin
+/**/obj
