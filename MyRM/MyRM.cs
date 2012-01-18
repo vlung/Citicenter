@@ -277,9 +277,11 @@ namespace MyRM
   public bool Delete(Transaction xid, RID rid, int count)
    {
         // TODO add locking code here
-        Resource removed = resources[rid];
-        if ( removed == null ) {
+        Resource removed;
+        
+        if (!resources.TryGetValue(rid, out removed)) {
             // silently discard
+            return false;
         } else {
             if ( removed.getCount() > count ) {
                 removed.decrCount(count);
@@ -325,9 +327,9 @@ namespace MyRM
     public int Query(TP.Transaction context, RID rid)
     {
         Console.WriteLine("RM: Query");
-        Resource resource = resources[rid];
+        Resource resource;
   
-	    if(resource == null)
+	    if(!resources.TryGetValue(rid,out resource))
 	    {
             throw new ArgumentException(rid+" does not exist");
 	    }
@@ -341,11 +343,11 @@ namespace MyRM
     /* Need to add code here
 	 returns the price for the specified item type */
     // </summary>
-    public int QueryPrice(Transaction xid, RID i)
+    public int QueryPrice(Transaction xid, RID rid)
     {
-        Resource ii = resources[i];
-        if ( ii == null ) {
-            throw new ArgumentException(i+" does not exist");
+        Resource ii;
+        if (!resources.TryGetValue(rid,out ii)) {
+            throw new ArgumentException(rid+" does not exist");
         }
         return ii.getPrice();
     }
@@ -354,9 +356,9 @@ namespace MyRM
     public String QueryReserved(Transaction context, Customer customer)
     {
         StringBuilder buf = new StringBuilder(512);
-        
-        HashSet<RID> reserved = reservations[customer];
-        if ( reserved != null ) {
+
+        HashSet<RID> reserved;
+        if (reservations.TryGetValue(customer,out reserved)) {
             foreach ( RID rid in reserved ) {
                 if ( buf.Length > 0 ) {
                     buf.Append(',');
@@ -371,9 +373,10 @@ namespace MyRM
     public int QueryReservedPrice(Transaction context, Customer customer)
     {
         int bill = 0;
-        
-        HashSet<RID> reserved = reservations[customer];
-        if ( reserved != null ) {
+
+        HashSet<RID> reserved;
+        if (reservations.TryGetValue(customer, out reserved))
+        {
             foreach ( RID rid in reserved ) {
                 Resource r = resources[rid];
                 if ( r == null ) {
@@ -388,24 +391,23 @@ namespace MyRM
 
     public bool Reserve(Transaction context, Customer c, RID i)
     {
-        Resource ii = resources[i];
+        Resource ii ;
         
-        if ( ii == null ) {
+        if (!resources.TryGetValue(i,out ii)) {
             throw new InvalidOperationException(i+" does not exist!");
         }
         if ( ii.getCount() == 0 ) {
             return false;
         }
-        
-        HashSet<RID> r = reservations[c];
-        if ( r == null ) {
+
+        HashSet<RID> r;
+        if (!reservations.TryGetValue(c, out r))
+        {
             r = new HashSet<RID>();
-            r.Add(ii.getID());
             reservations.Add(c, r);
-        } else {
-            r.Add(ii.getID());
         }
-        
+        r.Add(ii.getID());
+
         ii.decrCount();
         
         return true;
@@ -414,8 +416,9 @@ namespace MyRM
     
     public void UnReserve(Transaction context, Customer c)
     {
-        HashSet<RID> r = reservations[c];
-        if ( r == null ) {
+        HashSet<RID> r;
+        if (!reservations.TryGetValue(c,out r))
+        {
             // silently discard
         } else {
             // TODO need to add lock

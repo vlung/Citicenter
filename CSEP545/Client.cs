@@ -256,9 +256,9 @@ namespace CSEP545
                 throw new System.InvalidOperationException("unknown command: "+command);
             }
         } catch ( InvalidOperationException x ) {
-            Console.WriteLine(x.Message);
+            Console.WriteLine(x.ToString());
         } catch ( Exception x ) {
-            Console.WriteLine(x.StackTrace);
+            Console.WriteLine(x.ToString());
         }
     }
     
@@ -299,7 +299,7 @@ namespace CSEP545
 
         try {
             String line;
-            while ( (line = Console.In.ReadLine()) != null && (line = Console.In.ReadLine()) != "bye") {
+            while ( (line = Console.In.ReadLine()) != null && (line != "bye") {
                 line = line.Trim();
                 if ( line.Length > 0 ) {
                     client.run(line);

@@ -15,19 +15,22 @@ namespace MyTM
 	public class MyTM: System.MarshalByRefObject, TP.TM
 	{
 
-        private SynchronizedCollection<RM> resourceManagers;
+        private HashSet<RM> resourceManagers;
 		public MyTM()
 		{
 			System.Console.WriteLine("Transaction Manager instantiated");
-            resourceManagers = new SynchronizedCollection<RM>();
+            resourceManagers = new HashSet<RM>();
 		}
 
         public RM GetResourceMananger(string name)
         {
-            foreach (RM rm in resourceManagers)
+            lock (resourceManagers)
             {
-                if (rm.GetName().Contains(name.ToLower()))
-                    return rm;
+                foreach (RM rm in resourceManagers)
+                {
+                    if (rm.GetName().Contains(name.ToLower()))
+                        return rm;
+                }
             }
             return null;
         }
@@ -81,8 +84,10 @@ namespace MyTM
             { 
                 Console.WriteLine(e.ToString());
             }
-            resourceManagers.Add(newRM);
-            
+            lock (resourceManagers)
+            {
+                resourceManagers.Add(newRM);
+            }
         }
 
         public void shutdown() 

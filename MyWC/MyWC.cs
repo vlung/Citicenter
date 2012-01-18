@@ -227,7 +227,7 @@ namespace MyWC
         public Transaction Start()
         {
             // TODO Auto-generated method stub
-            return null;
+            return TransactionManager.Start();
         }
 
 
@@ -308,8 +308,6 @@ namespace MyWC
                     TransactionManager = (TP.TM)Activator.GetObject(typeof(TP.TM), tmServer + ":" + tmPort + "/TM.soap");
                     Transaction tid = TransactionManager.Start();
                     TransactionManager.Abort(tid);
-                    
-
                 }
                 catch (RemotingException e)
                 {
@@ -321,19 +319,22 @@ namespace MyWC
 
             
             Console.WriteLine("Transaction Manager retrieved at {0}", tmURL);
-
-            Flights = TransactionManager.GetResourceMananger("flight");
-            if(Flights != null)
+            while (Flights == null || Rooms == null || Cars == null)
+            {
+                if(Flights == null)
+                    Flights = TransactionManager.GetResourceMananger("flight");
+                if (Rooms == null)
+                    Rooms = TransactionManager.GetResourceMananger("room");
+                if (Cars == null)
+                    Cars = TransactionManager.GetResourceMananger("car");
+            }
+            if (Flights != null)
                 Console.WriteLine("Get RM with the name:" + Flights.GetName());
-
-            Rooms = TransactionManager.GetResourceMananger("room");
-            if(Rooms != null)
+            if (Rooms != null)
                 Console.WriteLine("Get RM with the name:" + Rooms.GetName());
-
-            Cars = TransactionManager.GetResourceMananger("car");
-            if(Cars != null)
+            if (Cars != null)
                 Console.WriteLine("Get RM with the name:" + Cars.GetName());
-            
+
             HttpChannel httpChannel = new HttpChannel(Int32.Parse(parser["p"]));
             System.Runtime.Remoting.Channels.ChannelServices.RegisterChannel(httpChannel, false);
             System.Runtime.Remoting.RemotingConfiguration.RegisterWellKnownServiceType

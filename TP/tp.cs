@@ -35,6 +35,11 @@ namespace TP
 		{
 			return this.Id.GetHashCode();
 		}
+
+        public override string ToString()
+        {
+            return base.ToString() + ":" + Id.ToString();
+        }
 	}
 
 	/// <summary>
@@ -51,8 +56,9 @@ namespace TP
 		/// </summary>
 		public Customer()
 		{
-			this.Id = new System.Guid();
-		}
+            this.Id = System.Guid.NewGuid();
+        
+        }
 
         public Customer(string s)
         {
@@ -78,6 +84,10 @@ namespace TP
 
 			return false;
 		}
+        public override string ToString()
+        {
+            return base.ToString() + ":" + Id.ToString();
+        }
 	}
 
 	/// <summary>
