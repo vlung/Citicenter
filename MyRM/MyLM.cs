@@ -1,7 +1,3 @@
-
-
-
-
 using System.Runtime.Serialization;
 
 namespace MyRM
@@ -101,6 +97,11 @@ namespace MyRM
                   A transaction should have exactly one lock type on a resource, corresponding to the 
                   strongest lock mode granted for that resource */
             /// </summary>
+            
+            // One entry for each LockMode
+            System.Collections.Hashtable[] transactions;
+            LockMode locked;
+
             public ResourceEntry()
             {
                 this.transactions = new System.Collections.Hashtable[(int)MyLM.LockMode._Length];
@@ -155,14 +156,17 @@ namespace MyRM
 
                 transactionList.Remove(context);
 
-                for (LockMode l = request; l > LockMode.Null; locked = --l)
+                for (LockMode l = LockMode.Write; l > LockMode.Null; --l)
                 {
                     // recalculate the strongest lock mode
                     System.Collections.Hashtable nextTransactionList = this.transactions[(int)l];
                     if (nextTransactionList == null)
                         continue;
                     if (nextTransactionList.Count > 0)
+                    {
+                        locked = l;
                         break;
+                    }
                 }
 
                 if (request > locked)
@@ -198,9 +202,56 @@ namespace MyRM
                 return false;
             }
 
-            // One entry for each LockMode
-            System.Collections.Hashtable[] transactions;
-            LockMode locked;
+            public bool UpgradeLockRequest(TP.Transaction context, LockMode request)
+            {
+                // There is no need to upgrade the lock if it is not a write request or if the resource is not locked
+                if (request != LockMode.Write || locked == LockMode.Null)
+                    return false;
+
+                // First, deal with the case when the resouce is write-locked
+                if (locked == LockMode.Write)
+                {
+                    System.Collections.Hashtable writeTransactionList = this.transactions[(int)LockMode.Write];
+
+                    // Assume that the write transaction list is not null when the current lock mode is Write
+                    if (writeTransactionList == null)
+                    {
+                        throw new System.ApplicationException("Write transaction list is null even when lock mode is write");
+                    }
+
+                    // There is no need to do anywork if the transaction already has a write lock on the resource.
+                    if (writeTransactionList[context] != null)
+                        return true;
+                    // The lock can't be upgraded if another transaction has a write lock on the resource
+                    else if (writeTransactionList.Count > 0)
+                        return false;
+                }
+                // Deal with the case when the resource is read-locked
+                else
+                {
+                    System.Collections.Hashtable readTransactionList = this.transactions[(int)LockMode.Read];
+
+                    // Assume that the write transaction list is not null when the current lock mode is Write
+                    if (readTransactionList == null)
+                    {
+                        throw new System.ApplicationException("Read transaction list is null even when lock mode is read");
+                    }
+
+                    // We can upgrade the lock only if the transaction is the only one that has a read lock on the resource
+                    if (readTransactionList.Count == 1 && readTransactionList[context] != null)
+                    {
+                        // Acquire the write lock for this resource before releasing the read lock to ensure two-phase locking
+                        Register(context, LockMode.Write);
+                        Unregister(context, LockMode.Read);
+                        return true;
+                    }
+                    // The lock can't be upgraded if another transaction has a read lock on the resource
+                    else
+                        return false;
+                }
+
+                return false;
+            }
         }
 
 
@@ -236,7 +287,7 @@ namespace MyRM
                    if it doesn't happen, timeout for deadlock,
                    else try again to set the lock */
                 if (c > 0)
-                    if (!lockTarget.UnlockEvent.WaitOne(DEFAULT_DEADLOCK_TIMEOUT, false))
+                    if (!lockTarget.UnlockEvent.WaitOne(System.TimeSpan.FromMilliseconds((double)deadlockTimeout), false))
                         throw new DeadLockDetected(string.Format("Resource {0} timed out", resource));
 
                 if (c > 0)
@@ -251,11 +302,18 @@ namespace MyRM
                         lockTarget.Register(context, mode);
                         return;
                     }
-                    else if (lockTarget.DownGradedLockRequest(context, mode))
+                    // If the request is read, see if the transaction alreday has a write lock on the resource
+                    else if (mode == LockMode.Read && lockTarget.DownGradedLockRequest(context, mode))
+                    {
                         // ‘context’ has a write lock on lockTarget and requested a read lock so no action is required.                        // 
                         return;
-
-                    // Add code here to attempt lock conversion
+                    }
+                    // If the request is write and the transaction already has a read lock on the resource, try
+                    // to upgrade the read lock to a write lock if no other transactions has a lock on this resource
+                    else if (mode == LockMode.Write && lockTarget.UpgradeLockRequest(context, mode))
+                    {
+                        return;
+                    }
                 }
             }
 

@@ -4,7 +4,10 @@
 
 # Build output folders #
 ########################
-/TestResults
-/**/TestResults
 /**/bin
 /**/obj
+
+# Test folders #
+################
+/TestResults
+/**/TestResults/
