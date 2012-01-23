@@ -133,10 +133,14 @@ namespace MyRM
 
                 // Update the strongest lock mode, if necessary	  
                 if (request > locked)
+                {
                     locked = request;
+                }
 
                 if (evnt != null)
+                {
                     evnt.Reset();
+                }
             }
 
             /// <summary>
@@ -170,9 +174,13 @@ namespace MyRM
                 }
 
                 if (request > locked)
+                {
                     // if anyone was waiting for this lock, they should recheck
                     if (evnt != null)
+                    {
                         evnt.Set();
+                    }
+                }
             }
 
             System.Threading.AutoResetEvent evnt;
@@ -197,7 +205,9 @@ namespace MyRM
             {
                 System.Collections.Hashtable transactionList = this.transactions[(int)LockMode.Write];
                 if (request == LockMode.Read && (transactionList != null && transactionList[context] != null))
+                {
                     return true;
+                }
 
                 return false;
             }
@@ -221,10 +231,14 @@ namespace MyRM
 
                     // There is no need to do anywork if the transaction already has a write lock on the resource.
                     if (writeTransactionList[context] != null)
+                    {
                         return true;
+                    }
                     // The lock can't be upgraded if another transaction has a write lock on the resource
                     else if (writeTransactionList.Count > 0)
+                    {
                         return false;
+                    }
                 }
                 // Deal with the case when the resource is read-locked
                 else
@@ -247,7 +261,9 @@ namespace MyRM
                     }
                     // The lock can't be upgraded if another transaction has a read lock on the resource
                     else
+                    {
                         return false;
+                    }
                 }
 
                 return false;
@@ -287,11 +303,17 @@ namespace MyRM
                    if it doesn't happen, timeout for deadlock,
                    else try again to set the lock */
                 if (c > 0)
+                {
                     if (!lockTarget.UnlockEvent.WaitOne(System.TimeSpan.FromMilliseconds((double)deadlockTimeout), false))
+                    {
                         throw new DeadLockDetected(string.Format("Resource {0} timed out", resource));
+                    }
+                }
 
                 if (c > 0)
+                {
                     System.Console.WriteLine(string.Format("Attempt {0} in resource {1}", c, resource));
+                }
 
                 // Get exclusive access to the resource
                 lock (lockTarget)
@@ -348,7 +370,9 @@ namespace MyRM
 
                 // Check if the resource wasn't locked, and if so, then return
                 if (lockTarget == null)
+                {
                     return;
+                }
             }
 
             // Get exclusive access to the resource
