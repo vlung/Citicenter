@@ -1,4 +1,5 @@
 using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace MyRM
 {
@@ -10,12 +11,12 @@ namespace MyRM
     public class MyLM : TP.LM
     {
         // Lock table
-        System.Collections.Hashtable ResourceTable;
+        Dictionary<TP.Lockable,ResourceEntry> ResourceTable;
         private long deadlockTimeout;
         public static readonly int DEFAULT_DEADLOCK_TIMEOUT = 10000;
         public MyLM()
         {
-            this.ResourceTable = new System.Collections.Hashtable();
+            this.ResourceTable = new Dictionary<TP.Lockable, ResourceEntry>();
             deadlockTimeout = DEFAULT_DEADLOCK_TIMEOUT;
         }
 
@@ -183,10 +184,10 @@ namespace MyRM
                 }
             }
 
-            System.Threading.AutoResetEvent evnt;
+            System.Threading.ManualResetEvent evnt;
 
             // Define a property for UnlockEvent
-            public System.Threading.AutoResetEvent UnlockEvent
+            public System.Threading.ManualResetEvent UnlockEvent
             {
                 get
                 {
@@ -195,7 +196,7 @@ namespace MyRM
                     lock (this)
                     {
                         if (evnt == null)
-                            evnt = new System.Threading.AutoResetEvent(false);
+                            evnt = new System.Threading.ManualResetEvent(false);
                     }
                     return evnt;
                 }
@@ -274,7 +275,7 @@ namespace MyRM
         /* Lock passed in resource _resource_ in mode _mode_				 
           This method needs additional code to implement lock conversion.
           It does deadlock detection by timeout */
-        private void Lock(TP.Transaction context, TP.RID resource, LockMode mode)
+        private void Lock(TP.Transaction context, TP.Lockable resource, LockMode mode)
         {
             ResourceEntry lockTarget;
 
@@ -285,7 +286,7 @@ namespace MyRM
             lock (this.ResourceTable)
             {
                 // Pick the needed resource from ResourceTable
-                lockTarget = (ResourceEntry)this.ResourceTable[resource];
+                this.ResourceTable.TryGetValue(resource, out lockTarget);
 
                 // Create a ResourceEntry for resource, if there is none
                 if (lockTarget == null)
@@ -345,28 +346,28 @@ namespace MyRM
 
 
         // Get a read lock for the resource
-        public void LockForRead(TP.Transaction context, TP.RID resource)
+        public void LockForRead(TP.Transaction context, TP.Lockable resource)
         {
             Lock(context, resource, MyLM.LockMode.Read);
         }
 
 
         // Get a write lock for the resource
-        public void LockForWrite(TP.Transaction context, TP.RID resource)
+        public void LockForWrite(TP.Transaction context, TP.Lockable resource)
         {
             Lock(context, resource, MyLM.LockMode.Write);
         }
 
 
         // Unlock a resource: find the entry and call unregister lock
-        private void Unlock(TP.Transaction context, TP.RID resource, LockMode mode)
+        private void Unlock(TP.Transaction context, TP.Lockable resource, LockMode mode)
         {
             ResourceEntry lockTarget;
 
             // Get exclusive access to the lock table
             lock (this.ResourceTable)
             {
-                lockTarget = (ResourceEntry)this.ResourceTable[resource];
+                this.ResourceTable.TryGetValue(resource, out lockTarget);
 
                 // Check if the resource wasn't locked, and if so, then return
                 if (lockTarget == null)
@@ -385,14 +386,14 @@ namespace MyRM
 
 
         // A shortcut to unlock a read lock
-        public void UnlockRead(TP.Transaction context, TP.RID resource)
+        public void UnlockRead(TP.Transaction context, TP.Lockable resource)
         {
             Unlock(context, resource, LockMode.Read);
         }
 
 
         // A shortcut to unlock a write lock
-        public void UnlockWrite(TP.Transaction context, TP.RID resource)
+        public void UnlockWrite(TP.Transaction context, TP.Lockable resource)
         {
             Unlock(context, resource, LockMode.Write);
         }
@@ -411,11 +412,13 @@ namespace MyRM
                 while (resenum.MoveNext())
                 {
                     ResourceEntry lockTarget = (ResourceEntry)resenum.Value;
-
-                    // Unregister all unlock modes for current resource
-                    for (int lockMode = (int)LockMode.Read; lockMode < (int)LockMode._Length; lockMode++)
+                    lock (lockTarget)
                     {
-                        lockTarget.Unregister(context, (LockMode)lockMode);
+                        // Unregister all unlock modes for current resource
+                        for (int lockMode = (int)LockMode.Read; lockMode < (int)LockMode._Length; lockMode++)
+                        {
+                            lockTarget.Unregister(context, (LockMode)lockMode);
+                        }
                     }
                 }
             }

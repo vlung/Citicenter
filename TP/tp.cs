@@ -1,3 +1,7 @@
+using System;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+
 namespace TP
 {
 	/// <summary>
@@ -6,8 +10,8 @@ namespace TP
 		 these interfaces. You are welcome to write them yourself if you
 		 prefer. */		 
 	/// </summary>
- 	[System.Serializable()]
-	public class Transaction
+    [Serializable()]
+	public class Transaction : IComparable<Transaction>
 	{
 		/// <summary>
 		/*   Transaction Identifier */
@@ -40,13 +44,19 @@ namespace TP
         {
             return base.ToString() + ":" + Id.ToString();
         }
-	}
+
+
+        public int CompareTo(Transaction other)
+        {
+            return Id.CompareTo(other.Id);
+        }
+     }
 
 	/// <summary>
 	/*   Customer class */
 	/// </summary>
-	[System.Serializable()]
-	public class Customer
+    [Serializable()]
+    public class Customer : IComparable<Customer>,Lockable
 	{
 		/* Customer Identifier */
 		public System.Guid Id;
@@ -88,12 +98,18 @@ namespace TP
         {
             return base.ToString() + ":" + Id.ToString();
         }
+
+        public int CompareTo(Customer other)
+        {
+            return Id.CompareTo(other.Id);
+        }
+
 	}
 
 	/// <summary>
 	/*   Reservable Item class */
 	/// </summary>
-	[System.Serializable()]
+    [Serializable()]
 	public class Item
 	{
 		public string Name;
@@ -139,11 +155,11 @@ namespace TP
 	{
 		/// <param name="context"></param>
 		/// <param name="resource"></param>
-		void LockForRead(Transaction context, RID resource);
+		void LockForRead(Transaction context, Lockable resource);
 
 		/// <param name="context"></param>
 		/// <param name="resource"></param>
-		void LockForWrite(Transaction context, RID resource);
+        void LockForWrite(Transaction context, Lockable resource);
 		
 		/// <param name="context"></param>
 		void UnlockAll(Transaction context);
@@ -153,6 +169,18 @@ namespace TP
 
         
 	}
+
+    /**
+     * A marker interface to indicate the type of
+     * lockable item. A Lockable item must properly implement
+     * {@link Object#hashCode()}, {@link Object#equals(Object)}, and 
+     * {@link Object#toString()} methods to be compatible with
+     * {@link LM}.
+     */
+    public interface Lockable
+    {
+    }
+
 
 	/// <summary>
 	/*   Transaction manager interface */
