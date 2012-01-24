@@ -44,7 +44,7 @@
 
         public bool Read(Transaction context, Customer rID, out Reservation data)
         {
-            data = new Reservation();
+            data = new Reservation(rID);
             return true;
         }
 
