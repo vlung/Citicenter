@@ -43,8 +43,15 @@
                 throw new InsuffcientSpaceException();
             }
 
+            // lets find a space to insert this data
+            int index = this.recordList.IndexOf(null);
+            if (-1 == index)
+            {
+                index = this.recordList.Count;
+            }
+
             // add the data
-            this.recordList.Add(record);
+            this.recordList.Insert(index, record);
 
             // return to index
             return this.recordList.IndexOf(record);
@@ -58,7 +65,7 @@
                 throw new InvalidRecordException();
             }
 
-            this.recordList.RemoveAt(recordIdx);
+            this.recordList[recordIdx] = null;
         }
 
         public void WriteRecord(int recordIdx, string data)
@@ -170,8 +177,12 @@
             pageWriter.Write(this.recordList.Count);
             foreach (byte[] record in this.recordList)
             {
-                pageWriter.Write(record.Length);
-                pageWriter.Write(record, 0, record.Length);
+                pageWriter.Write(null == record ? 0 : record.Length);
+                if (null != record
+                    && 0 < record.Length)
+                {
+                    pageWriter.Write(record, 0, record.Length);
+                }
             }
         }
 
@@ -193,8 +204,13 @@
             int recordCount = pageReader.ReadInt32();
             for (int idx = 0; idx < recordCount; idx++)
             {
+                byte[] record = null;
+
                 int recordSize = pageReader.ReadInt32();
-                byte[] record = pageReader.ReadBytes(recordSize);
+                if (0 < recordSize)
+                {
+                    pageReader.ReadBytes(recordSize);
+                }
 
                 this.recordList.Add(record);
             }

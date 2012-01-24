@@ -47,6 +47,9 @@
     <Compile Include="MyLM.cs" />
     <Compile Include="MyRM.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Reservation.cs" />
+    <Compile Include="Resource.cs" />
+    <Compile Include="StorageManager.cs" />
     <Compile Include="StoragePage.cs" />
   </ItemGroup>
   <ItemGroup>
