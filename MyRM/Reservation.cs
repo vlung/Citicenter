@@ -8,7 +8,7 @@ namespace MyRM
     using TP;
 
     [System.Serializable()]
-    class Reservation
+    public class Reservation
     {
         private Customer rID;
         private List<RID> resourceList;

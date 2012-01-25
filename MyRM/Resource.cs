@@ -7,7 +7,7 @@
     /// Class to keep track of inventory information
     /// </summary>
     [System.Serializable()]
-    class Resource
+    public class Resource
     {
         private static readonly long serialVersionUID = 15980438631067294L;
 

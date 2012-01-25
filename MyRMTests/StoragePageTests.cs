@@ -11,7 +11,7 @@ namespace MyRMTests
     /// Summary description for StoragePageUnitTest
     /// </summary>
     [TestClass]
-    public class StoragePageUnitTest
+    public class StoragePageTests
     {
         #region Constants
 
@@ -19,7 +19,7 @@ namespace MyRMTests
 
         #endregion
 
-        public StoragePageUnitTest()
+        public StoragePageTests()
         {
         }
 

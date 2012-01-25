@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
+    using System.Runtime.Serialization.Formatters.Binary;
 
     public class StoragePage
     {
@@ -35,9 +36,9 @@
             recordList = new List<byte[]>();
         }
 
-        public int AddRecord(string data)
+        public int AddRecord(object data)
         {
-            byte[] record = RecordDataEncoder.GetBytes(data);
+            byte[] record = this.Serialize(data);
             if (0 > this.GetAvailableSpace() - this.GetRecordSize(record))
             {
                 throw new InsuffcientSpaceException();
@@ -68,7 +69,7 @@
             this.recordList[recordIdx] = null;
         }
 
-        public void WriteRecord(int recordIdx, string data)
+        public void WriteRecord(int recordIdx, object data)
         {
             if (recordIdx >= this.recordList.Count
                 || 0 > recordIdx)
@@ -77,7 +78,8 @@
             }
 
             // encode the data
-            byte[] record = RecordDataEncoder.GetBytes(data);
+            //byte[] record = RecordDataEncoder.GetBytes(data);
+            byte[] record = this.Serialize(data);
             if (0 > this.GetAvailableSpace() + this.GetRecordSize(recordIdx) - this.GetRecordSize(record))
             {
                 throw new InsuffcientSpaceException();
@@ -86,7 +88,7 @@
             this.recordList[recordIdx] = record;
         }
 
-        public string ReadRecord(int recordIdx)
+        public object ReadRecord(int recordIdx)
         {
             if (recordIdx >= this.recordList.Count
                 || 0 > recordIdx)
@@ -94,8 +96,10 @@
                 throw new InvalidRecordException();
             }
 
-            string data = RecordDataEncoder.GetString(
-                this.recordList[recordIdx]);
+            //string data = RecordDataEncoder.GetString(
+            //    this.recordList[recordIdx]);
+            object data = this.Deserialize(
+                            this.recordList[recordIdx]);
 
             return data;
         }
@@ -122,6 +126,11 @@
             // initialize members
             this.recordList = new List<byte[]>();
             this.ReadPageData(dataBuffer);
+        }
+
+        public static int GetPageAddress(int pageIdx)
+        {
+            return pageIdx * PageSize;
         }
 
         #endregion
@@ -213,6 +222,26 @@
                 }
 
                 this.recordList.Add(record);
+            }
+        }
+
+        private byte[] Serialize(object data)
+        {
+            using(MemoryStream stream = new MemoryStream())
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                formatter.Serialize(stream, data);
+
+                return stream.ToArray();
+            }            
+        }
+
+        private object Deserialize(byte[] data)
+        {
+            using(MemoryStream stream = new MemoryStream(data))
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                return formatter.Deserialize(stream);
             }
         }
 
