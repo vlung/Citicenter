@@ -8,7 +8,7 @@ namespace MyRM
     using System.IO;
 
     [System.Serializable()]
-    class StoragePageTable
+    public class StoragePageTable
     {
         #region Private Members
 
@@ -33,6 +33,41 @@ namespace MyRM
                 NextPageIndex = EndOfListAddress
             };
         }
+
+        public int GetPhysicalPage(int logocalPage)
+        {
+            if (0 <= logocalPage
+                && pageTable.Count > logocalPage)
+            {
+                return pageTable[logocalPage].PageIndex;
+            }
+
+            return -1;
+        }
+
+        public int SetLogicalPage(int physicalPage)
+        {
+            StoragePageTableEntry item = new StoragePageTableEntry()
+            {
+                IsChanged = true,
+                PageIndex = physicalPage,
+            };
+
+            pageTable.Add(item);
+            return pageTable.IndexOf(item);
+        }
+
+        public void UpdatePage(int logicalPage, int physicalPage)
+        {
+            if (0 > logicalPage
+                || (pageTable.Count - 1) < logicalPage)
+            {
+                throw new InvalidLogicalAddressException();
+            }
+
+            pageTable[logicalPage].PageIndex = physicalPage;
+            pageTable[logicalPage].IsChanged = true;
+        }        
 
         public void WritePageTableData(FileStream stream, int pageIdx)
         {
@@ -109,26 +144,7 @@ namespace MyRM
             page.WritePageData(stream, pageIdx);
         }
 
-        private int GetNextFreePageAddress(FileStream stream)
-        {
-            int nextFreePageIdx = this.pageTableHeader.FirstFreePageIndex;
-
-            // update the free page list
-            if (stream.Length <= StoragePage.GetPageAddress(this.pageTableHeader.FirstFreePageIndex))
-            {
-                this.pageTableHeader.FirstFreePageIndex++;
-            }
-            else
-            {                
-                StoragePage page = new StoragePage();
-                page.ReadPageData(stream, this.pageTableHeader.FirstFreePageIndex);
-
-                StoragePageTableHeader header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
-                this.pageTableHeader.FirstFreePageIndex = header.NextPageIndex;
-            }
-
-            return nextFreePageIdx;
-        }
+        
 
         public void ReadPageTableData(FileStream stream, int pageIdx)
         {
@@ -142,6 +158,61 @@ namespace MyRM
             {
                 throw new InvalidPageTableException();
             }
+
+            StoragePageTableHeader header = this.pageTableHeader;
+            while(true)
+            {
+                // process this page
+                for (int idx = 1; idx <= header.PageEntriesCount; idx++)
+                {
+                    StoragePageTableEntry item = (StoragePageTableEntry)page.ReadRecord(HeaderRecordIdx + idx);
+                    this.pageTable.Add(item);
+                }
+
+                // check if there is a next page
+                if (EndOfListAddress == header.NextPageIndex)
+                {
+                    break;
+                }
+                
+                // load up next page
+                page.ReadPageData(stream, header.NextPageIndex);
+                header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
+                if (null == header)
+                {
+                    throw new InvalidPageTableException();
+                }
+            }
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private void AddFreePageAddress(int oldPhysicalPage)
+        {
+            throw new NotImplementedException();
+        }
+
+        private int GetNextFreePageAddress(FileStream stream)
+        {
+            int nextFreePageIdx = this.pageTableHeader.FirstFreePageIndex;
+
+            // update the free page list
+            if (stream.Length <= StoragePage.GetPageAddress(this.pageTableHeader.FirstFreePageIndex))
+            {
+                this.pageTableHeader.FirstFreePageIndex++;
+            }
+            else
+            {
+                StoragePage page = new StoragePage();
+                page.ReadPageData(stream, this.pageTableHeader.FirstFreePageIndex);
+
+                StoragePageTableHeader header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
+                this.pageTableHeader.FirstFreePageIndex = header.NextPageIndex;
+            }
+
+            return nextFreePageIdx;
         }
 
         #endregion
@@ -193,6 +264,24 @@ namespace MyRM
             }
 
             public InvalidPageTableException(string message, System.Exception e)
+                : base(message, e)
+            {
+            }
+        }
+
+        public class InvalidLogicalAddressException : System.Exception
+        {
+            public InvalidLogicalAddressException()
+                : base("Unable resolve logical address.")
+            {
+            }
+
+            public InvalidLogicalAddressException(string message)
+                : base(message)
+            {
+            }
+
+            public InvalidLogicalAddressException(string message, System.Exception e)
                 : base(message, e)
             {
             }

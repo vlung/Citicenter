@@ -1,23 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace MyRM
+﻿namespace MyRM
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using TP;
+
     [System.Serializable()]
     class StoragePageTableEntry
     {
+        private bool f;
+        private int p;
+
         public bool IsChanged
         {
-            get;
-            set;
+            get
+            {
+                return f;
+            }
+            set
+            {
+                f = value;
+            }
         }
 
-        public int PhysicalPage
+        public int PageIndex
         {
-            get;
-            set;
+            get
+            {
+                return p;
+            }
+            set
+            {
+                p = value;
+            }
         }
     }
 }

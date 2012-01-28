@@ -218,7 +218,7 @@
                 int recordSize = pageReader.ReadInt32();
                 if (0 < recordSize)
                 {
-                    pageReader.ReadBytes(recordSize);
+                    record = pageReader.ReadBytes(recordSize);
                 }
 
                 this.recordList.Add(record);
