@@ -104,28 +104,44 @@
             return data;
         }
 
-        public void WritePageData(FileStream stream, int pageIdx)
+        public int WritePageData(FileStream stream, int pageIdx)
         {
             // get the page data
             byte[] dataBuffer = new byte[PageSize];
             this.WritePageData(dataBuffer);
 
             // write to the file stream
+            if (0 > pageIdx
+                || stream.Length < pageIdx * PageSize)
+            {
+                pageIdx = (int)(stream.Length / PageSize);
+            }
+
             stream.Seek(pageIdx * PageSize, SeekOrigin.Begin);
             stream.Write(dataBuffer, 0, dataBuffer.Length);
+
+            return pageIdx;
         }
 
-        public void ReadPageData(FileStream stream, int pageIdx)
+        public int ReadPageData(FileStream stream, int pageIdx)
         {
             byte[] dataBuffer = new byte[PageSize];
 
             // read from the file stream
+            if (0 > pageIdx
+                || stream.Length < (pageIdx + 1) * PageSize)
+            {
+                throw new InvalidPageException();
+            }
+
             stream.Seek(pageIdx * PageSize, SeekOrigin.Begin);
             stream.Read(dataBuffer, 0, dataBuffer.Length);
 
             // initialize members
             this.recordList = new List<byte[]>();
             this.ReadPageData(dataBuffer);
+
+            return pageIdx;
         }
 
         public static int GetPageAddress(int pageIdx)
@@ -144,11 +160,6 @@
             // record count indicator
             usedSpace += sizeof(int);
 
-            // record index
-            // the +1 accounts for the space that would be used for the index entry
-            // of a new record
-            usedSpace += sizeof(int) * (this.recordList.Count + 1);
-
             // space used by each record
             foreach (byte[] record in this.recordList)
             {
@@ -160,7 +171,11 @@
 
         private int GetRecordSize(byte[] record)
         {
-            return (sizeof(byte) * record.Length);
+            if (null == record)
+            {
+                return sizeof(int);
+            }
+            return (sizeof(byte) * record.Length + sizeof(int));
         }
 
         private int GetRecordSize(int recordIdx)
@@ -227,6 +242,11 @@
 
         private byte[] Serialize(object data)
         {
+            if (null == data)
+            {
+                return null;
+            }
+
             using(MemoryStream stream = new MemoryStream())
             {
                 BinaryFormatter formatter = new BinaryFormatter();
@@ -238,6 +258,11 @@
 
         private object Deserialize(byte[] data)
         {
+            if (null == data)
+            {
+                return null;
+            }
+
             using(MemoryStream stream = new MemoryStream(data))
             {
                 BinaryFormatter formatter = new BinaryFormatter();
@@ -280,6 +305,24 @@
             }
 
             public InsuffcientSpaceException(string message, System.Exception e)
+                : base(message, e)
+            {
+            }
+        }
+
+        public class InvalidPageException : System.Exception
+        {
+            public InvalidPageException()
+                : base("The page does not have sufficent space to store the data.")
+            {
+            }
+
+            public InvalidPageException(string message)
+                : base(message)
+            {
+            }
+
+            public InvalidPageException(string message, System.Exception e)
                 : base(message, e)
             {
             }

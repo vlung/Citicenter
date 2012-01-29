@@ -68,14 +68,15 @@
             int entryCount = 40;
             int physicalPageDistance = 5;
 
-            string dataFile = "TestData2.dat";
+            string dataFile = "TestData2.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
             }
 
-            StoragePageTable pageTable2 = new StoragePageTable(1);
-            StoragePageTable pageTable = new StoragePageTable(1);
+            StorageFreeSpaceManager spaceMgr = new StorageFreeSpaceManager();
+            StoragePageTable pageTable2 = new StoragePageTable();
+            StoragePageTable pageTable = new StoragePageTable();
             for (int idx = 0; idx < entryCount; idx++)
             {
                 pageTable.SetLogicalPage(idx + physicalPageDistance);
@@ -83,14 +84,14 @@
 
             using (FileStream dataFileStream = File.Open(dataFile, FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
-                pageTable.WritePageTableData(dataFileStream, 0);
+                int root = pageTable.WritePageTableData(dataFileStream, spaceMgr);
                 dataFileStream.Seek(0, SeekOrigin.Begin);
-                pageTable2.ReadPageTableData(dataFileStream, 0);
+                pageTable2.ReadPageTableData(dataFileStream, root);
             }
 
             for (int idx = 0; idx < entryCount; idx++)
             {
-                int physicalAddress = pageTable.GetPhysicalPage(idx);
+                int physicalAddress = pageTable2.GetPhysicalPage(idx);
                 Assert.AreEqual(idx + physicalPageDistance, physicalAddress);
             }
         }

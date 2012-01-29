@@ -12,7 +12,7 @@
         #region Private Members
 
         // use one letter names to make serialization compact
-        private bool f;
+        private bool d;
         private int p;
 
         #endregion
@@ -21,11 +21,11 @@
         {
             get
             {
-                return f;
+                return d;
             }
             set
             {
-                f = value;
+                d = value;
             }
         }
 

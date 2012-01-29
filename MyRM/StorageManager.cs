@@ -7,11 +7,15 @@
 
     public class StorageManager
     {
-        #region Private Members
+        #region Constants
 
         private static byte[] MagicKey = {0x1A, 0x2B, 0x3C, 0x4D};
-        private static int RootPage = 1;
-        private static int Default_PageTablePage = 2;
+        private const int RootPage = 1;
+        private const int Default_PageTablePage = 2;
+
+        #endregion
+
+        #region Private Members
 
         private static object DataFileLock = new object();
 
@@ -139,9 +143,12 @@
             this.dataFile.Seek(0, SeekOrigin.Begin);
             this.dataFile.Write(MagicKey, 0, MagicKey.Length);
 
+            // create the free space manager
+            StorageFreeSpaceManager spaceMgr = new StorageFreeSpaceManager();
+
             // create the page table
-            StoragePageTable pageTable = new StoragePageTable(Default_PageTablePage + 1);
-            pageTable.WritePageTableData(this.dataFile, Default_PageTablePage);
+            StoragePageTable pageTable = new StoragePageTable();
+            pageTable.WritePageTableData(this.dataFile, spaceMgr);
         }
 
         #endregion

@@ -6,32 +6,24 @@ using System.Text;
 namespace MyRM
 {
     using System.IO;
+    using DS;
 
     [System.Serializable()]
     public class StoragePageTable
     {
         #region Private Members
 
-        private const int HeaderRecordIdx = 0;
-        private const int EndOfListAddress = -1;
-
-        private List<StoragePageTableEntry> pageTable;
-        private StoragePageTableHeader pageTableHeader;
+        private List<PageTableItem> pageTable;
+        private List<int> pageTableStoragePages;
 
         #endregion
 
         #region Public Methods
 
-        public StoragePageTable(int firstFreePageIdx)
+        public StoragePageTable()
         {
-            this.pageTable = new List<StoragePageTableEntry>();
-            this.pageTableHeader = new StoragePageTableHeader
-            {
-                TotalEntriesCount = 0,
-                FirstFreePageIndex = firstFreePageIdx,
-                PageEntriesCount = 0,
-                NextPageIndex = EndOfListAddress
-            };
+            this.pageTable = new List<PageTableItem>();
+            this.pageTableStoragePages = new List<int>();
         }
 
         public int GetPhysicalPage(int logocalPage)
@@ -47,7 +39,7 @@ namespace MyRM
 
         public int SetLogicalPage(int physicalPage)
         {
-            StoragePageTableEntry item = new StoragePageTableEntry()
+            PageTableItem item = new PageTableItem()
             {
                 IsChanged = true,
                 PageIndex = physicalPage,
@@ -69,182 +61,52 @@ namespace MyRM
             pageTable[logicalPage].IsChanged = true;
         }        
 
-        public void WritePageTableData(FileStream stream, int pageIdx)
+        public int WritePageTableData(FileStream stream, StorageFreeSpaceManager mgr)
         {
-            Stack<StoragePage> pageStack = new Stack<StoragePage>();
+            List<int> pageIdxList = null;
 
-            // build the pages
-            StoragePage page = new StoragePage();
-            StoragePageTableHeader header = this.pageTableHeader;
-            header.PageEntriesCount = 0;
-            page.AddRecord(header);
+            // create the writer
+            ListWriter<PageTableItem> writer = new ListWriter<PageTableItem>();
+            writer.WriteList(stream, mgr, this.pageTable, out pageIdxList);
 
-            // build the pages
-            foreach (var entry in this.pageTable)
+            // update the list that stores the physical page idx
+            mgr.SetFreePages(this.pageTableStoragePages);
+            this.pageTableStoragePages = pageIdxList;
+
+            // mark all items as clean
+            foreach (PageTableItem item in this.pageTable)
             {
-                try
-                {
-                    page.AddRecord(entry);
-                }
-                catch (StoragePage.InsuffcientSpaceException e)
-                {
-                    page.WriteRecord(HeaderRecordIdx, header);
-                    pageStack.Push(page);
-
-                    // it is ok if we throw here because it means the entry is larger than the page
-                    // so we can never store this entry
-                    header = new StoragePageTableHeader()
-                    {
-                        TotalEntriesCount = this.pageTableHeader.TotalEntriesCount,
-                        NextPageIndex = EndOfListAddress,
-                        PageEntriesCount = 0,
-                        FirstFreePageIndex = EndOfListAddress,
-                    };
-                    page = new StoragePage();
-                    page.AddRecord(header);
-
-                    page.AddRecord(entry);
-                    
-                }
-                finally
-                {
-                    header.PageEntriesCount++;
-                }
+                item.IsChanged = false;
             }
 
-            // push the last page
-            pageStack.Push(page);
-
-            // write the pages
-            int lastPageAddress = EndOfListAddress;
-            while (1 < pageStack.Count)
-            {
-                page = pageStack.Pop();
-
-                // update the header
-                header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
-                header.NextPageIndex = lastPageAddress;
-                page.WriteRecord(HeaderRecordIdx, header);
-
-                // get the page index to write to
-                lastPageAddress = this.GetNextFreePageAddress(stream);
-
-                // write the page
-                page.WritePageData(stream, lastPageAddress);
-            }
-
-            // write the root page
-            page = pageStack.Pop();
-
-            // update the header
-            this.pageTableHeader.NextPageIndex = lastPageAddress;
-            page.WriteRecord(0, this.pageTableHeader);
-
-            // write the page
-            page.WritePageData(stream, pageIdx);
+            // return the index of the first page
+            return this.pageTableStoragePages[0];
         }
 
-        
-
-        public void ReadPageTableData(FileStream stream, int pageIdx)
+        public int ReadPageTableData(FileStream stream, int pageIdx)
         {
-            // load the page data from file
-            StoragePage page = new StoragePage();
-            page.ReadPageData(stream, pageIdx);
+            List<PageTableItem> itemList = null;
+            List<int> pageIdxList = null;
 
-            // get the header
-            this.pageTableHeader = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
-            if (null == this.pageTableHeader)
+            // create reader
+            ListReader<PageTableItem> reader = new ListReader<PageTableItem>();
+            reader.ReadList(stream, pageIdx, out itemList, out pageIdxList);
+
+            // merge with current data
+            for (int idx = 0; idx < this.pageTable.Count && idx < itemList.Count; idx++)
             {
-                throw new InvalidPageTableException();
-            }
-
-            StoragePageTableHeader header = this.pageTableHeader;
-            while(true)
-            {
-                // process this page
-                for (int idx = 1; idx <= header.PageEntriesCount; idx++)
+                if (this.pageTable[idx].IsChanged)
                 {
-                    StoragePageTableEntry item = (StoragePageTableEntry)page.ReadRecord(HeaderRecordIdx + idx);
-                    this.pageTable.Add(item);
-                }
-
-                // check if there is a next page
-                if (EndOfListAddress == header.NextPageIndex)
-                {
-                    break;
-                }
-                
-                // load up next page
-                page.ReadPageData(stream, header.NextPageIndex);
-                header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
-                if (null == header)
-                {
-                    throw new InvalidPageTableException();
+                    itemList[idx] = this.pageTable[idx];
                 }
             }
-        }
+            this.pageTable = itemList;
 
-        #endregion
+            // update page index
+            this.pageTableStoragePages = pageIdxList;
 
-        #region Private Methods
-
-        private void AddFreePageAddress(int oldPhysicalPage)
-        {
-            throw new NotImplementedException();
-        }
-
-        private int GetNextFreePageAddress(FileStream stream)
-        {
-            int nextFreePageIdx = this.pageTableHeader.FirstFreePageIndex;
-
-            // update the free page list
-            if (stream.Length <= StoragePage.GetPageAddress(this.pageTableHeader.FirstFreePageIndex))
-            {
-                this.pageTableHeader.FirstFreePageIndex++;
-            }
-            else
-            {
-                StoragePage page = new StoragePage();
-                page.ReadPageData(stream, this.pageTableHeader.FirstFreePageIndex);
-
-                StoragePageTableHeader header = (StoragePageTableHeader)page.ReadRecord(HeaderRecordIdx);
-                this.pageTableHeader.FirstFreePageIndex = header.NextPageIndex;
-            }
-
-            return nextFreePageIdx;
-        }
-
-        #endregion
-
-        #region Helper Classes
-
-        [System.Serializable()]
-        class StoragePageTableHeader
-        {
-            public int NextPageIndex
-            {
-                get;
-                set;
-            }
-
-            public int PageEntriesCount
-            {
-                get;
-                set;
-            }
-
-            public int FirstFreePageIndex
-            {
-                get;
-                set;
-            }
-
-            public int TotalEntriesCount
-            {
-                get;
-                set;
-            }
+            // return index of the first page
+            return this.pageTableStoragePages[0];
         }
 
         #endregion
