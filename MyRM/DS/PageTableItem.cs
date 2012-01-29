@@ -1,4 +1,4 @@
-﻿namespace MyRM
+﻿namespace MyRM.DS
 {
     using System;
     using System.Collections.Generic;
@@ -7,10 +7,15 @@
     using TP;
 
     [System.Serializable()]
-    class StoragePageTableEntry
+    class PageTableItem
     {
+        #region Private Members
+
+        // use one letter names to make serialization compact
         private bool f;
         private int p;
+
+        #endregion
 
         public bool IsChanged
         {
