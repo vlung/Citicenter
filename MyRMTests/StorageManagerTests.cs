@@ -76,7 +76,7 @@
         }
 
         [TestMethod]
-        public void TestWriteResource()
+        public void TestReadWriteResource()
         {
             string dataFile = "TestData2.tpdb";
             if (File.Exists(dataFile))
@@ -87,7 +87,6 @@
             // cerate the storage manager
             StorageManager mgr = StorageManager.CreateObject(dataFile);
 
-            Transaction context = new Transaction();
             Resource[] data = 
             {
                 new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 45)
@@ -106,11 +105,46 @@
                 , new Resource(new RID(RID.Type.CAR, "Paris"), 10, 45)
             };
 
+            // write the data
+            Transaction context1 = new Transaction();
             foreach (var item in data)
             {
-                mgr.Write(context, item);
+                mgr.Write(context1, item);
             }
-            mgr.Commit(context);
+
+            // read the data in the same transaction
+            foreach (var item in data)
+            {
+                Resource output = null;
+                if (!mgr.Read(context1, item.getID(), out output))
+                {
+                    Assert.Fail("Same transaction: Read of [{0}] was un-successful.", item.ToString());
+                }
+                Assert.AreEqual<Resource>(item, output, "Same transaction: Read was un-successful.");
+            }
+            mgr.Commit(context1);
+
+            // read the data in a new transaction
+            Transaction context2 = new Transaction();
+            foreach (var item in data)
+            {
+                Resource output = null;
+                if (!mgr.Read(context2, item.getID(), out output))
+                {
+                    Assert.Fail("Different transaction: Read of [{0}] was un-successful.", item.ToString());
+                }
+                Assert.AreEqual<Resource>(item, output, "Different transaction: Read was un-successful.");
+            }
+            mgr.Commit(context2);
+
+            // read non existing data
+            Resource missingItem = null;
+            if (mgr.Read(context2, new RID(RID.Type.FLIGHT, "DOES NOT EXIST"), out missingItem)
+                || null != missingItem)
+            {
+                Assert.Fail("Test read of missing item failed.");
+            }
+            
         }
     }
 }

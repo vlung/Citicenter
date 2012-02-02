@@ -395,7 +395,7 @@ namespace MyRM
         List<string> result = new List<string>(resources.Count);
         foreach ( Resource resource in resources.Values) {
             if ( type == resource.getType() ) {
-                result.Add(resource.toString());
+                result.Add(resource.ToString());
             }
         }
         return result.ToArray();

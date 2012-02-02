@@ -96,7 +96,7 @@
                 var item = itemList[idx];
 
                 RIndexItem indexEntry = null;
-                if (!this.indexMap.TryGetValue(item.ResourceId, out indexEntry))
+                if (this.indexMap.TryGetValue(item.ResourceId, out indexEntry))
                 {
                     if (null == indexEntry
                         || indexEntry.IsDirty)

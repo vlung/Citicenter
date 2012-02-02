@@ -36,7 +36,7 @@
 
         public void Commit(Transaction context)
         {
-            StorageContext storageContext = this.GetStorageContext(context);
+            StorageContext storageContext = this.GetStorageContext(context, true);
             if (null == storageContext)
             {
                 throw new Exception();
@@ -89,7 +89,31 @@
 
         public bool Read(Transaction context, RID rID, out Resource data)
         {
-            data = new Resource();
+            // TODO: Add locking
+            StorageContext storageContext = this.GetStorageContext(context, false);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
+            // look for the resource in the index
+            RIndexItem address = storageContext.ResourceIndex.GetResourceAddress(rID);
+            if (null == address)
+            {
+                data = null;
+                return false;
+            }
+
+            // find the physical page
+            int fileAddress = storageContext.PageTable.GetPhysicalPage(address.Page);
+
+            // get the page
+            StoragePage page = new StoragePage();
+            page.ReadPageData(this.dataFile, fileAddress);
+
+            // read the data
+            data = (Resource)page.ReadRecord(address.Record);
+
             return true;
         }
 
@@ -102,7 +126,7 @@
         public bool Write(Transaction context, Resource data)
         {
             // TODO: Add locking
-            StorageContext storageContext = this.GetStorageContext(context);
+            StorageContext storageContext = this.GetStorageContext(context, false);
             if (null == storageContext)
             {
                 throw new Exception();
@@ -225,11 +249,15 @@
             }
         }
 
-        protected StorageContext GetStorageContext(Transaction context)
+        protected StorageContext GetStorageContext(Transaction context, bool remove)
         {
             StorageContext storageContext = null;
             if (this.contextMap.TryGetValue(context, out storageContext))
             {
+                if (remove)
+                {
+                    this.contextMap.Remove(context);
+                }
                 return storageContext;
             }
 

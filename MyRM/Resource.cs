@@ -11,9 +11,9 @@
     {
         private static readonly long serialVersionUID = 15980438631067294L;
 
-        private RID rID;
-        private int count;
-        private int price;
+        private RID i;
+        private int c;
+        private int p;
 
         public Resource() 
         { 
@@ -21,78 +21,105 @@
 
         public Resource(RID rID)
         {
-            this.rID = rID;
+            this.i = rID;
         }
         public Resource(RID rID, int c, int p)
         {
-            this.rID = rID;
-            this.count = c;
-            this.price = p;
+            this.i = rID;
+            this.c = c;
+            this.p = p;
         }
 
         public String getName()
         { 
-            return rID.getName(); 
+            return i.getName(); 
         }
 
         public RID getID() 
         { 
-            return rID;
+            return i;
         }
         
         public RID.Type getType() 
         { 
-            return rID.getType(); 
+            return i.getType(); 
         }
         
         public int getCount() 
         { 
-            return count; 
+            return c; 
         }
 
         public int getPrice() 
         { 
-            return price; 
+            return p; 
         }
 
         public void incrCount() 
         { 
-            ++this.count; 
+            ++this.c; 
         }
 
         public void incrCount(int c) 
         { 
-            this.count += c; 
+            this.c += c; 
         }
 
         public void decrCount(int c) 
         { 
-            this.count -= c; 
+            this.c -= c; 
         }
 
         public void decrCount() 
         { 
-            --this.count; 
+            --this.c; 
         }
 
         public void setCount(int count) 
         { 
-            this.count = count; 
+            this.c = count; 
         }
 
         public void setPrice(int price) 
         { 
-            this.price = price;
+            this.p = price;
         }
         
         public int hashCode() 
         { 
-            return rID.GetHashCode(); 
+            return i.GetHashCode(); 
         }
 
-        public String toString()
+        public bool Equals(Resource other)
         {
-            return rID.getName() + "," + count + "," + price;
+            if (null == other)
+            {
+                return false;
+            }
+
+            return (this.i.Equals(other.i)
+                && this.p.Equals(other.p)
+                && this.c.Equals(other.c));
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (base.Equals(obj))
+            {
+                return true;
+            }
+
+            if (obj is Resource)
+            {
+                return this.Equals((Resource)obj);
+            }
+
+            return false;
+        }
+
+        public override String ToString()
+        {
+            return i.ToString() + "," + c + "," + p;
         }
     }
 }
