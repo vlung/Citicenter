@@ -34,14 +34,14 @@ namespace MyRM
 
         public void SetFreePage(int page)
         {
-            this.freePages.Enqueue(page);
+            //this.freePages.Enqueue(page);
         }
 
         public void SetFreePages(List<int> pages)
         {
             foreach (var page in pages)
             {
-                this.freePages.Enqueue(page);
+                //this.freePages.Enqueue(page);
             }
         }
 

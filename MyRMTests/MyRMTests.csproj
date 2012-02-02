@@ -55,6 +55,10 @@
       <Project>{D632D16C-AFD4-4817-81ED-EC73552D4E1D}</Project>
       <Name>MyRM</Name>
     </ProjectReference>
+    <ProjectReference Include="..\TP\TP.csproj">
+      <Project>{CE08CD45-05C9-49E9-966C-2E893060B316}</Project>
+      <Name>TP</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

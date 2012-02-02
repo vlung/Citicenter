@@ -7,6 +7,7 @@
     using System.Text;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using MyRM;
+    using TP;
 
     /// <summary>
     /// Summary description for StoragePageTableTests
@@ -64,7 +65,7 @@
         [TestMethod]
         public void TestInitializeDataFile()
         {
-            string dataFile = "TestData.dat";
+            string dataFile = "TestData1.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
@@ -72,6 +73,44 @@
 
             // cerate the storage manager
             StorageManager mgr = StorageManager.CreateObject(dataFile);
+        }
+
+        [TestMethod]
+        public void TestWriteResource()
+        {
+            string dataFile = "TestData2.tpdb";
+            if (File.Exists(dataFile))
+            {
+                File.Delete(dataFile);
+            }
+
+            // cerate the storage manager
+            StorageManager mgr = StorageManager.CreateObject(dataFile);
+
+            Transaction context = new Transaction();
+            Resource[] data = 
+            {
+                new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Boston"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "San Diego"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "New York"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Dallas"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Houston"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Toronto"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Montreal"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Vancouver"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Ottawa"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Portland"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "New Jersey"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Salt Lake City"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Paris"), 10, 45)
+            };
+
+            foreach (var item in data)
+            {
+                mgr.Write(context, item);
+            }
+            mgr.Commit(context);
         }
     }
 }

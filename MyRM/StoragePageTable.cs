@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
+﻿
 namespace MyRM
 {
+    using System.Collections.Generic;
     using System.IO;
     using DS;
 
@@ -29,9 +26,13 @@ namespace MyRM
         public int GetPhysicalPage(int logocalPage)
         {
             if (0 <= logocalPage
-                && pageTable.Count > logocalPage)
+                && this.pageTable.Count > logocalPage)
             {
-                return pageTable[logocalPage].PageIndex;
+                return this.pageTable[logocalPage].PageIndex;
+            }
+            else if (0 < this.pageTable.Count)
+            {
+                return this.pageTable[this.pageTable.Count - 1].PageIndex;
             }
 
             return -1;
@@ -41,24 +42,24 @@ namespace MyRM
         {
             PageTableItem item = new PageTableItem()
             {
-                IsChanged = true,
+                IsDirty = true,
                 PageIndex = physicalPage,
             };
 
-            pageTable.Add(item);
-            return pageTable.IndexOf(item);
+            this.pageTable.Add(item);
+            return this.pageTable.IndexOf(item);
         }
 
         public void UpdatePage(int logicalPage, int physicalPage)
         {
             if (0 > logicalPage
-                || (pageTable.Count - 1) < logicalPage)
+                || (this.pageTable.Count - 1) < logicalPage)
             {
                 throw new InvalidLogicalAddressException();
             }
 
-            pageTable[logicalPage].PageIndex = physicalPage;
-            pageTable[logicalPage].IsChanged = true;
+            this.pageTable[logicalPage].PageIndex = physicalPage;
+            this.pageTable[logicalPage].IsDirty = true;
         }        
 
         public int WritePageTableData(FileStream stream, StorageFreeSpaceManager mgr)
@@ -76,7 +77,7 @@ namespace MyRM
             // mark all items as clean
             foreach (PageTableItem item in this.pageTable)
             {
-                item.IsChanged = false;
+                item.IsDirty = false;
             }
 
             // return the index of the first page
@@ -95,12 +96,20 @@ namespace MyRM
             // merge with current data
             for (int idx = 0; idx < this.pageTable.Count && idx < itemList.Count; idx++)
             {
-                if (this.pageTable[idx].IsChanged)
+                if (!this.pageTable[idx].IsDirty)
                 {
-                    itemList[idx] = this.pageTable[idx];
+                    this.pageTable[idx] = itemList[idx];
                 }
             }
-            this.pageTable = itemList;
+
+            // add the missing one
+            if (this.pageTable.Count < itemList.Count)
+            {
+                this.pageTable.AddRange(
+                    itemList.GetRange(
+                        this.pageTable.Count,
+                        (itemList.Count - this.pageTable.Count)));
+            }
 
             // update page index
             this.pageTableStoragePages = pageIdxList;

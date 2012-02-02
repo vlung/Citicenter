@@ -5,7 +5,24 @@ using System.Text;
 
 namespace MyRM
 {
-    class StorageContext
+    public class StorageContext
     {
+        public StoragePageTable PageTable
+        {
+            get;
+            set;
+        }
+
+        public StorageResourceIndex ResourceIndex
+        {
+            get;
+            set;
+        }
+
+        public StorageFreeSpaceManager FreePageList
+        {
+            get;
+            set;
+        }
     }
 }
