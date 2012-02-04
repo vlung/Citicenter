@@ -158,15 +158,17 @@ namespace MyRM
                     // This transaction wasn't registered, return immediately
                     return;
                 }
-
                 transactionList.Remove(context);
 
+                locked = LockMode.Null;
                 for (LockMode l = LockMode.Write; l > LockMode.Null; --l)
                 {
                     // recalculate the strongest lock mode
                     System.Collections.Hashtable nextTransactionList = this.transactions[(int)l];
                     if (nextTransactionList == null)
+                    {
                         continue;
+                    }
                     if (nextTransactionList.Count > 0)
                     {
                         locked = l;
