@@ -93,16 +93,16 @@
                 new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Boston"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "San Diego"), 10, 45)
-                , new Resource(new RID(RID.Type.CAR, "New York"), 10, 45)
+                , new Resource(new RID(RID.Type.FLIGHT, "New York"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Dallas"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Houston"), 10, 45)
-                , new Resource(new RID(RID.Type.CAR, "Toronto"), 10, 45)
+                , new Resource(new RID(RID.Type.ROOM, "Toronto"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Montreal"), 10, 45)
-                , new Resource(new RID(RID.Type.CAR, "Vancouver"), 10, 45)
+                , new Resource(new RID(RID.Type.FLIGHT, "Vancouver"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Ottawa"), 10, 45)
-                , new Resource(new RID(RID.Type.CAR, "Portland"), 10, 45)
+                , new Resource(new RID(RID.Type.ROOM, "Portland"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "New Jersey"), 10, 45)
-                , new Resource(new RID(RID.Type.CAR, "Salt Lake City"), 10, 45)
+                , new Resource(new RID(RID.Type.ROOM, "Salt Lake City"), 10, 45)
                 , new Resource(new RID(RID.Type.CAR, "Paris"), 10, 45)
             };
 
@@ -146,6 +146,22 @@
             {
                 Assert.Fail("Test read of missing item failed.");
             }
+            
+            // TEST read resource list
+            List<Resource> carList = null;
+            if (!mgr.Read(context2, RID.Type.CAR, out carList))
+            {
+                Assert.Fail("Test read of car list failed.");
+            }
+            foreach(var car in data3.Where(c => c.Id.getType() == RID.Type.CAR))
+            {
+                if (!carList.Contains(car))
+                {
+                    Assert.Fail("{0}: Read resource list failed to retrieve [{1}].", context2.Id.ToString(), car);
+                }
+            }
+
+            mgr.Commit(context2);
         }
 
         [TestMethod]
@@ -201,13 +217,29 @@
             ReadReservations(null, mgr, data3);
 
             // TEST read non existing data
-            Resource missingItem = null;
             Transaction context2 = new Transaction();
+            Resource missingItem = null;
             if (mgr.Read(context2, new RID(RID.Type.FLIGHT, "DOES NOT EXIST"), out missingItem)
                 || null != missingItem)
             {
                 Assert.Fail("Test read of missing item failed.");
             }
+
+            // TEST read resource list
+            List<Customer> customerList = null;
+            if (!mgr.Read(context2, out customerList))
+            {
+                Assert.Fail("Test read of customer list failed.");
+            }
+            foreach (var customer in data3.Select(c => c.Id))
+            {
+                if (!customerList.Contains(customer))
+                {
+                    Assert.Fail("{0}: Read resource list failed to retrieve [{1}].", context2.Id.ToString(), customer);
+                }
+            }
+
+            mgr.Commit(context2);
         }
 
         #region Private Helper Methods

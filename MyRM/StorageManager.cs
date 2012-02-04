@@ -51,13 +51,54 @@
 
         public bool Read(Transaction context, out List<Customer> data)
         {
-            data = new List<Customer>();
+            //
+            // TODO: add lock
+            //
+
+            StorageContext storageContext = this.aGetStorageContext(context);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
+            data = storageContext
+                    .ReservationIndex
+                        .GetIdList()
+                            .ToList();
+
             return true;
         }
 
         public bool Read(Transaction context, RID.Type rType, out List<Resource> data)
         {
+            //
+            // TODO: add lock
+            //
+
+            StorageContext storageContext = this.aGetStorageContext(context);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
             data = new List<Resource>();
+            foreach (var id in storageContext.ResourceIndex.GetIdList())
+            {
+                if (id.getType() != rType)
+                {
+                    continue;
+                }
+
+                Resource resource = null;
+                if (!Read<RID, Resource>(
+                        storageContext, storageContext.ResourceIndex, id, out resource))
+                {
+                    continue;
+                }
+
+                data.Add(resource);
+            }
+            
             return true;
         }
 

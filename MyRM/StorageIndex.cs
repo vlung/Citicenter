@@ -26,6 +26,11 @@
             this.indexStoragePages = new List<int>();
         }
 
+        public IEnumerable<T> GetIdList()
+        {
+            return indexMap.Keys;
+        }
+
         public IndexItem<T> GetResourceAddress(T resourceId)
         {
             IndexItem<T> address = null;
