@@ -9,26 +9,26 @@
     using TP;
 
     [System.Serializable()]
-    public class StorageResourceIndex
+    public class StorageIndex<T>
     {
         #region Private Members
 
-        private Dictionary<RID, RIndexItem> indexMap;
+        private Dictionary<T, IndexItem<T>> indexMap;
         private List<int> indexStoragePages;
 
         #endregion
 
         #region Public Methods
 
-        public StorageResourceIndex()
+        public StorageIndex()
         {
-            this.indexMap = new Dictionary<RID, RIndexItem>();
+            this.indexMap = new Dictionary<T, IndexItem<T>>();
             this.indexStoragePages = new List<int>();
         }
 
-        public RIndexItem GetResourceAddress(RID resourceId)
+        public IndexItem<T> GetResourceAddress(T resourceId)
         {
-            RIndexItem address = null;
+            IndexItem<T> address = null;
             if (!this.indexMap.TryGetValue(resourceId, out address))
             {
                 return null;
@@ -37,7 +37,7 @@
             return address;
         }
 
-        public void SetResourceAddress(RID resourceId, RIndexItem address)
+        public void SetResourceAddress(T resourceId, IndexItem<T> address)
         {
             if (null == resourceId)
             {
@@ -46,7 +46,7 @@
 
             if (null != address)
             {
-                // make sure the address contains the RID and
+                // make sure the address contains the resource and
                 // the store the value
                 address.ResourceId = resourceId;
                 address.IsDirty = true;
@@ -60,7 +60,7 @@
             List<int> pageIdxList = null;
 
             // create the writer
-            ListWriter<RIndexItem> writer = new ListWriter<RIndexItem>();
+            ListWriter<IndexItem<T>> writer = new ListWriter<IndexItem<T>>();
             writer.WriteList(
                 stream, 
                 manager, 
@@ -83,11 +83,11 @@
 
         public int ReadIndexData(FileStream stream, int pageIdx)
         {
-            List<RIndexItem> itemList = null;
+            List<IndexItem<T>> itemList = null;
             List<int> pageIdxList = null;
 
             // create reader
-            ListReader<RIndexItem> reader = new ListReader<RIndexItem>();
+            ListReader<IndexItem<T>> reader = new ListReader<IndexItem<T>>();
             reader.ReadList(stream, pageIdx, out itemList, out pageIdxList);
 
             // merge with current data
@@ -95,7 +95,7 @@
             {
                 var item = itemList[idx];
 
-                RIndexItem indexEntry = null;
+                IndexItem<T> indexEntry = null;
                 if (this.indexMap.TryGetValue(item.ResourceId, out indexEntry))
                 {
                     if (null == indexEntry

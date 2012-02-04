@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace MyRM
+﻿namespace MyRM
 {
+    using System.Collections.Generic;
+
+    using TP;
+
     public class StorageContext
     {
         #region Constructors
@@ -12,7 +11,8 @@ namespace MyRM
         public StorageContext()
         {
             this.PageTable = new StoragePageTable();
-            this.ResourceIndex = new StorageResourceIndex();
+            this.ResourceIndex = new StorageIndex<RID>();
+            this.ReservationIndex = new StorageIndex<Customer>();
             
             this.AllocatedPageList = new List<int>();
             this.FreedPageList = new List<int>();
@@ -26,7 +26,13 @@ namespace MyRM
             set;
         }
 
-        public StorageResourceIndex ResourceIndex
+        public StorageIndex<RID> ResourceIndex
+        {
+            get;
+            set;
+        }
+
+        public StorageIndex<Customer> ReservationIndex
         {
             get;
             set;

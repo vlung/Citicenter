@@ -87,6 +87,7 @@
             // cerate the storage manager
             StorageManager mgr = StorageManager.CreateObject(dataFile);
 
+            // TEST write
             Resource[] data = 
             {
                 new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 45)
@@ -106,76 +107,217 @@
             };
 
             // write the data
-            Transaction context1 = new Transaction();
-            foreach (var item in data)
-            {
-                mgr.Write(context1, item);
-            }
-
-            // read the data in the same transaction
-            foreach (var item in data)
-            {
-                Resource output = null;
-                if (!mgr.Read(context1, item.getID(), out output))
-                {
-                    Assert.Fail("Same transaction: Read of [{0}] was un-successful.", item.ToString());
-                }
-                Assert.AreEqual<Resource>(item, output, "Same transaction: Read was un-successful.");
-            }
-            mgr.Commit(context1);
+            WriteResources(null, mgr, data, false);          
 
             // read the data in a new transaction
-            Transaction context2 = new Transaction();
-            foreach (var item in data)
+            ReadResources(null, mgr, data);
+            
+            // TEST write abort
+            Resource[] data2 = 
             {
-                Resource output = null;
-                if (!mgr.Read(context2, item.getID(), out output))
-                {
-                    Assert.Fail("Different transaction: Read of [{0}] was un-successful.", item.ToString());
-                }
-                Assert.AreEqual<Resource>(item, output, "Different transaction: Read was un-successful.");
-            }
-            mgr.Commit(context2);
+                new Resource(data[0].Id, 10, 43)
+                , new Resource(data[1].Id, 12, 43)
+            };
 
-            // read non existing data
+            // write the data
+            WriteResources(null, mgr, data2, true);
+
+            // read the data in a new transaction
+            ReadResources(null, mgr, data);
+
+            // TEST update
+            Resource[] data3 = data;
+            data3[0].setCount(data2[0].getCount());
+            data3[0].setPrice(data2[0].getPrice());
+            data3[1].setCount(data2[1].getCount());
+            data3[1].setPrice(data2[1].getPrice());
+
+            // write the data
+            WriteResources(null, mgr, data2, false);
+
+            // read the data in a new transaction
+            ReadResources(null, mgr, data3);
+
+            // TEST read non existing data
             Resource missingItem = null;
+            Transaction context2 = new Transaction();
             if (mgr.Read(context2, new RID(RID.Type.FLIGHT, "DOES NOT EXIST"), out missingItem)
                 || null != missingItem)
             {
                 Assert.Fail("Test read of missing item failed.");
             }
-            
-            // test abort
-            Resource[] data2 = 
+        }
+
+        [TestMethod]
+        public void TestReadWriteReservations()
+        {
+            string dataFile = "TestData3.tpdb";
+            if (File.Exists(dataFile))
             {
-                new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 43)
-                , new Resource(new RID(RID.Type.CAR, "Boston"), 10, 43)
-                , new Resource(new RID(RID.Type.CAR, "San Diego"), 10, 40)
-                , new Resource(new RID(RID.Type.CAR, "New York"), 10, 47)
-                , new Resource(new RID(RID.Type.CAR, "Montreal"), 10, 33)
-                , new Resource(new RID(RID.Type.CAR, "Vancouver"), 10, 55)
+                File.Delete(dataFile);
+            }
+
+            // cerate the storage manager
+            StorageManager mgr = StorageManager.CreateObject(dataFile);
+
+            // TEST write
+            Reservation[] data = 
+            {
+                new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "1234"), new RID(RID.Type.CAR, "Boston"), new RID(RID.Type.ROOM, "Boston") } )
+                , new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "1234"), new RID(RID.Type.CAR, "Miami"), new RID(RID.Type.ROOM, "New York") } )
+                , new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "2345"), new RID(RID.Type.CAR, "Seattle"), new RID(RID.Type.ROOM, "Portland") } )
+                , new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "3456"), new RID(RID.Type.CAR, "Seattle"), new RID(RID.Type.ROOM, "Boston") } )
+                , new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "4567"), new RID(RID.Type.CAR, "Miami"), new RID(RID.Type.ROOM, "Boston") } )
             };
 
             // write the data
-            Transaction context3 = new Transaction();
-            foreach (var item in data2)
-            {
-                mgr.Write(context3, item);
-            }
-            mgr.Abort(context3);
+            WriteReservations(null, mgr, data, false);
 
             // read the data in a new transaction
-            Transaction context4 = new Transaction();
+            ReadReservations(null, mgr, data);
+
+            // TEST write abort
+            Reservation[] data2 = 
+            {
+                new Reservation(data[0].Id, new RID[]{ new RID(RID.Type.FLIGHT, "6767"), new RID(RID.Type.CAR, "Boston"), new RID(RID.Type.ROOM, "Dallas") } )
+                , new Reservation(data[1].Id, new RID[]{ new RID(RID.Type.FLIGHT, "9933"), new RID(RID.Type.CAR, "Chicago"), new RID(RID.Type.ROOM, "New York") } )
+            };
+
+            // write the data
+            WriteReservations(null, mgr, data2, true);
+
+            // read the data in a new transaction
+            ReadReservations(null, mgr, data);
+
+            // TEST update
+            Reservation[] data3 = data;
+            data3[0].Resources = data2[0].Resources;
+            data3[1].Resources = data2[1].Resources;
+
+            // write the data
+            WriteReservations(null, mgr, data2, false);
+
+            // read the data in a new transaction
+            ReadReservations(null, mgr, data3);
+
+            // TEST read non existing data
+            Resource missingItem = null;
+            Transaction context2 = new Transaction();
+            if (mgr.Read(context2, new RID(RID.Type.FLIGHT, "DOES NOT EXIST"), out missingItem)
+                || null != missingItem)
+            {
+                Assert.Fail("Test read of missing item failed.");
+            }
+        }
+
+        #region Private Helper Methods
+
+        private static void ReadResources(Transaction context, StorageManager storage, Resource[] data)
+        {
+            bool createTransaction = (null == context);
+            if (createTransaction)
+            {
+                context = new Transaction();
+            }
+
             foreach (var item in data)
             {
                 Resource output = null;
-                if (!mgr.Read(context4, item.getID(), out output))
+                if (!storage.Read(context, item.Id, out output))
                 {
-                    Assert.Fail("Different transaction: Read of [{0}] was un-successful.", item.ToString());
+                    Assert.Fail("{0}: Read of [{1}] was un-successful.", context.Id.ToString(), item.Id.ToString());
                 }
-                Assert.AreEqual<Resource>(item, output, "Different transaction: Read was un-successful.");
+                Assert.AreEqual<Resource>(item, output, "{0}: Read was un-successful.", context.Id.ToString());
             }
-            mgr.Commit(context4);
+
+            if (createTransaction)
+            {
+                storage.Commit(context);
+            }
         }
+
+        private static void ReadReservations(Transaction context, StorageManager storage, Reservation[] data)
+        {
+            bool createTransaction = (null == context);
+            if (createTransaction)
+            {
+                context = new Transaction();
+            }
+
+            foreach (var item in data)
+            {
+                Reservation output = null;
+                if (!storage.Read(context, item.Id, out output))
+                {
+                    Assert.Fail("{0}: Read of [{1}] was un-successful.", context.Id.ToString(), item.Id.ToString());
+                }
+                Assert.AreEqual<Reservation>(item, output, "{0}: Read was un-successful.", context.Id.ToString());
+            }
+
+            if (createTransaction)
+            {
+                storage.Commit(context);
+            }
+        }
+
+        private static void WriteResources(Transaction context, StorageManager storage, Resource[] data, bool abort)
+        {
+            bool createTransaction = (null == context);
+            if (createTransaction)
+            {
+                context = new Transaction();
+            }
+
+            // write the data
+            foreach (var item in data)
+            {
+                storage.Write(context, item);
+            }
+
+            // read the data in the same transaction
+            ReadResources(context, storage, data);
+
+            if (createTransaction
+                && !abort)
+            {
+                storage.Commit(context);
+            }
+            else if (createTransaction
+                && abort)
+            {
+                storage.Abort(context);
+            }
+        }
+
+        private static void WriteReservations(Transaction context, StorageManager storage, Reservation[] data, bool abort)
+        {
+            bool createTransaction = (null == context);
+            if (createTransaction)
+            {
+                context = new Transaction();
+            }
+
+            // write the data
+            foreach (var item in data)
+            {
+                storage.Write(context, item);
+            }
+
+            // read the data in the same transaction
+            ReadReservations(context, storage, data);
+
+            if (createTransaction
+                && !abort)
+            {
+                storage.Commit(context);
+            }
+            else if (createTransaction
+                && abort)
+            {
+                storage.Abort(context);
+            }
+        }
+
+        #endregion
     }
 }

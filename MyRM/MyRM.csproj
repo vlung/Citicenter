@@ -48,7 +48,7 @@
     <Compile Include="DS\ListReader.cs" />
     <Compile Include="DS\ListWriter.cs" />
     <Compile Include="DS\ListHdr.cs" />
-    <Compile Include="DS\RIndexItem.cs" />
+    <Compile Include="DS\IndexItem.cs" />
     <Compile Include="MyLM.cs" />
     <Compile Include="MyRM.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -60,7 +60,7 @@
     <Compile Include="StoragePage.cs" />
     <Compile Include="StoragePageTable.cs" />
     <Compile Include="DS\PageTableItem.cs" />
-    <Compile Include="StorageResourceIndex.cs" />
+    <Compile Include="StorageIndex.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TP\TP.csproj">

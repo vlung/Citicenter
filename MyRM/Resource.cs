@@ -30,14 +30,24 @@
             this.p = p;
         }
 
-        public String getName()
-        { 
-            return i.getName(); 
+        public string Name
+        {
+            get
+            {
+                return i.getName();
+            }
         }
 
-        public RID getID() 
-        { 
-            return i;
+        public RID Id 
+        {
+            get
+            {
+                return i;
+            }
+            set
+            {
+                i = value;
+            }
         }
         
         public RID.Type getType() 
@@ -84,11 +94,6 @@
         { 
             this.p = price;
         }
-        
-        public int hashCode() 
-        { 
-            return i.GetHashCode(); 
-        }
 
         public bool Equals(Resource other)
         {
@@ -115,6 +120,11 @@
             }
 
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return i.GetHashCode();
         }
 
         public override String ToString()

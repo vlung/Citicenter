@@ -35,87 +35,19 @@
             return obj;
         }
 
-        public void Commit(Transaction context)
-        {
-            lock(ManagerLock)
-            {
-                StorageContext storageContext = null;
-                if (!this.contextMap.TryGetValue(context, out storageContext))
-                {
-                    // transaction must already have been commited or aborted
-                    // nothing to do
-                    return;
-                }
-                this.contextMap.Remove(context);
-
-                DBHdr dbRoot = this.ReadDBRoot();
-                if (null == dbRoot)
-                {
-                    throw new Exception();
-                }
-
-                // merge page table
-                storageContext.PageTable.ReadPageTableData(
-                    this.dataFile, dbRoot.PageTable);
-
-                // merge resource index
-                storageContext.ResourceIndex.ReadIndexData(
-                    this.dataFile, dbRoot.ResourceIndex);
-
-                // write the page table
-                List<int> oldPageTablePages = null;
-                dbRoot.PageTable = storageContext.PageTable.WritePageTableData(
-                    this.dataFile, this.pageManager, out oldPageTablePages);
-
-                // write the resource index
-                List<int> oldResourceIndexPages = null;
-                dbRoot.ResourceIndex = storageContext.ResourceIndex.WriteIndexData(
-                    this.dataFile, this.pageManager, out oldResourceIndexPages);
-
-                // update the page manager
-                this.pageManager.SetFreePages(oldPageTablePages);
-                this.pageManager.SetFreePages(oldResourceIndexPages);
-                this.pageManager.SetFreePages(storageContext.FreedPageList);
-                dbRoot.PageManager = this.pageManager.WritePageManagerData(
-                    this.dataFile);
-
-                this.WriteDBRoot(dbRoot);
-                this.dataFile.Flush(true);
-            }
-
-            // TODO: unlock
-        }
-
         public void Abort(Transaction context)
         {
-            lock (ManagerLock)
-            {
-                StorageContext storageContext = null;
-                if (!this.contextMap.TryGetValue(context, out storageContext))
-                {
-                    // transaction must already have been commited or aborted
-                    // nothing to do
-                    return;
-                }
-                this.contextMap.Remove(context);
-
-                DBHdr dbRoot = this.ReadDBRoot();
-                if (null == dbRoot)
-                {
-                    throw new Exception();
-                }
-
-                // update the page manager
-                this.pageManager.SetFreePages(storageContext.AllocatedPageList);
-                dbRoot.PageManager = this.pageManager.WritePageManagerData(
-                    this.dataFile);
-
-                this.WriteDBRoot(dbRoot);
-                this.dataFile.Flush(true);
-            }
+            aAbort(context);
 
             // TODO: unlock
         }
+
+        public void Commit(Transaction context)
+        {
+            aCommit(context);
+
+            // TODO: unlock
+        }        
 
         public bool Read(Transaction context, out List<Customer> data)
         {
@@ -131,54 +63,118 @@
 
         public bool Read(Transaction context, RID rID, out Resource data)
         {
-            // TODO: Add locking
+            //
+            // TODO: Lock the resource id to ensure that we will be able to merge the index
+            //
+
             StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
             {
                 throw new Exception();
             }
 
+            return Read<RID, Resource>(
+                storageContext, storageContext.ResourceIndex, rID, out data);
+        }
+
+        public bool Read(Transaction context, Customer rID, out Reservation data)
+        {
+            //
+            // TODO: Lock the resource id to ensure that we will be able to merge the index
+            //
+
+            StorageContext storageContext = this.aGetStorageContext(context);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
+            return Read<Customer, Reservation>(
+                storageContext, storageContext.ReservationIndex, rID, out data);
+        }
+
+        public bool Write(Transaction context, Resource data)
+        {
+            // 
+            // TODO: Lock the Resource ID to ensure that we can merge the index
+            // 
+
+            StorageContext storageContext = this.aGetStorageContext(context);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
+            return Write<RID, Resource>(
+                storageContext, storageContext.ResourceIndex, data.Id, data);
+        }       
+
+        public bool Write(Transaction context, Reservation data)
+        {
+            // 
+            // TODO: Lock the Resource ID to ensure that we can merge the index
+            // 
+
+            StorageContext storageContext = this.aGetStorageContext(context);
+            if (null == storageContext)
+            {
+                throw new Exception();
+            }
+
+            return Write<Customer, Reservation>(
+                storageContext, storageContext.ReservationIndex, data.Id, data);
+        }
+
+        #endregion
+
+        #region Protected Methods
+
+        /// <summary>
+        /// Default constructor.
+        /// </summary>
+        protected StorageManager()
+        {
+            this.contextMap = new Dictionary<Transaction, StorageContext>();
+        }
+
+        protected bool Read<I, R>(StorageContext context, StorageIndex<I> index, I rID, out R data)
+        {
+            //
+            // TODO: Lock the logical page to ensure we will be can shadow it without merging
+            //
+
             // look for the resource in the index
-            RIndexItem address = storageContext.ResourceIndex.GetResourceAddress(rID);
+            IndexItem<I> address = index.GetResourceAddress(rID);
             if (null == address)
             {
-                data = null;
+                data = default(R);
                 return false;
             }
 
             // find the physical page
-            int fileAddress = storageContext.PageTable.GetPhysicalPage(address.Page);
+            int fileAddress = context.PageTable.GetPhysicalPage(address.Page);
 
             // get the page
             StoragePage page = new StoragePage();
             this.aReadPageData(page, fileAddress);
 
             // read the data
-            data = (Resource)page.ReadRecord(address.Record);
+            data = (R)page.ReadRecord(address.Record);
 
             return true;
         }
 
-        public bool Read(Transaction context, Customer rID, out Reservation data)
+        protected bool Write<I, R>(StorageContext context, StorageIndex<I> index, I rID, R data)
         {
-            data = new Reservation(rID);
-            return true;
-        }
-
-        public bool Write(Transaction context, Resource data)
-        {
-            // TODO: Add locking
-            StorageContext storageContext = this.aGetStorageContext(context);
-            if (null == storageContext)
-            {
-                throw new Exception();
-            }
+            //
+            // TODO: Lock the page
+            // 
 
             // look for the resource in the index
-            RIndexItem address = storageContext.ResourceIndex.GetResourceAddress(data.getID());
+            IndexItem<I> address = index.GetResourceAddress(rID);
             if (null == address)
             {
-                address = new RIndexItem
+                address = new IndexItem<I>
                 {
                     Page = -1,
                     Record = -1
@@ -186,7 +182,7 @@
             }
 
             // find the physical page
-            int fileAddress = storageContext.PageTable.GetPhysicalPage(address.Page);
+            int fileAddress = context.PageTable.GetPhysicalPage(address.Page);
 
             // get the page
             StoragePage page = new StoragePage();
@@ -221,74 +217,117 @@
             }
 
             // write the page
-            fileAddress = this.aWritePageData(page, storageContext, fileAddress);
+            fileAddress = this.aWritePageData(page, context, fileAddress);
 
             // update the page table
             if (0 > address.Page)
             {
-                address.Page = storageContext.PageTable.SetLogicalPage(fileAddress);
+                address.Page = context.PageTable.SetLogicalPage(fileAddress);
             }
             else
             {
-                storageContext.PageTable.UpdatePage(address.Page, fileAddress);
+                context.PageTable.UpdatePage(address.Page, fileAddress);
             }
 
             // update the index
-            storageContext.ResourceIndex.SetResourceAddress(data.getID(), address);
+            index.SetResourceAddress(rID, address);
 
             return true;
-        }
-
-        
-
-        public bool Write(Transaction context, Reservation data)
-        {
-            return true;
-        }
-
-        #endregion
-
-        #region Protected Methods
-
-        /// <summary>
-        /// Default constructor.
-        /// </summary>
-        protected StorageManager()
-        {
-            this.contextMap = new Dictionary<Transaction, StorageContext>();
-        }
-
-        protected void aInit(string filePath)
-        {
-            lock (ManagerLock)
-            {
-                // create the empty page manager
-                this.pageManager = new StoragePageManager();
-
-                // open the file
-                this.dataFile = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
-
-                DBHdr dbRoot = this.ReadDBRoot();
-                if (null == dbRoot)
-                {
-                    // setup the data file
-                    this.InitializeDataFile();
-
-                    // flush the file
-                    this.dataFile.Flush(true);
-                }
-                else
-                {
-                    // read the data manager
-                    this.pageManager.ReadPageManagerData(
-                        this.dataFile, dbRoot.PageManager);
-                }
-            }
-        }
+        } 
 
         #endregion
 
         #region Private Methods
+
+        #region Atomic Methods
+
+        private void aAbort(Transaction context)
+        {
+            lock (ManagerLock)
+            {
+                StorageContext storageContext = null;
+                if (!this.contextMap.TryGetValue(context, out storageContext))
+                {
+                    // transaction must already have been commited or aborted
+                    // nothing to do
+                    return;
+                }
+                this.contextMap.Remove(context);
+
+                DBHdr dbRoot = this.ReadDBRoot();
+                if (null == dbRoot)
+                {
+                    throw new Exception();
+                }
+
+                // update the page manager
+                this.pageManager.SetFreePages(storageContext.AllocatedPageList);
+                dbRoot.PageManager = this.pageManager.WritePageManagerData(
+                    this.dataFile);
+
+                this.WriteDBRoot(dbRoot);
+                this.dataFile.Flush(true);
+            }
+        }
+
+        private void aCommit(Transaction context)
+        {
+            lock (ManagerLock)
+            {
+                StorageContext storageContext = null;
+                if (!this.contextMap.TryGetValue(context, out storageContext))
+                {
+                    // transaction must already have been commited or aborted
+                    // nothing to do
+                    return;
+                }
+                this.contextMap.Remove(context);
+
+                DBHdr dbRoot = this.ReadDBRoot();
+                if (null == dbRoot)
+                {
+                    throw new Exception();
+                }
+
+                // merge page table
+                storageContext.PageTable.ReadPageTableData(
+                    this.dataFile, dbRoot.PageTable);
+
+                // merge resource index
+                storageContext.ResourceIndex.ReadIndexData(
+                    this.dataFile, dbRoot.ResourceIndex);
+
+                // merge reservation index
+                storageContext.ReservationIndex.ReadIndexData(
+                    this.dataFile, dbRoot.ReservationIndex);
+
+                // write the page table
+                List<int> oldPageTablePages = null;
+                dbRoot.PageTable = storageContext.PageTable.WritePageTableData(
+                    this.dataFile, this.pageManager, out oldPageTablePages);
+
+                // write the resource index
+                List<int> oldResourceIndexPages = null;
+                dbRoot.ResourceIndex = storageContext.ResourceIndex.WriteIndexData(
+                    this.dataFile, this.pageManager, out oldResourceIndexPages);
+
+                // write the reservation index
+                List<int> oldReservationIndexPages = null;
+                dbRoot.ReservationIndex = storageContext.ReservationIndex.WriteIndexData(
+                    this.dataFile, this.pageManager, out oldReservationIndexPages);
+
+                // update the page manager
+                this.pageManager.SetFreePages(oldPageTablePages);
+                this.pageManager.SetFreePages(oldResourceIndexPages);
+                this.pageManager.SetFreePages(oldReservationIndexPages);
+                this.pageManager.SetFreePages(storageContext.FreedPageList);
+                dbRoot.PageManager = this.pageManager.WritePageManagerData(
+                    this.dataFile);
+
+                this.WriteDBRoot(dbRoot);
+                this.dataFile.Flush(true);
+            }
+        }
 
         private StorageContext aGetStorageContext(Transaction context)
         {
@@ -313,15 +352,49 @@
                 storageContext = new StorageContext();
 
                 // read in the page table
-                storageContext.PageTable.ReadPageTableData(this.dataFile, dbRoot.PageTable);
+                storageContext.PageTable.ReadPageTableData(
+                    this.dataFile, dbRoot.PageTable);
 
                 // read in the resource index
-                storageContext.ResourceIndex.ReadIndexData(this.dataFile, dbRoot.ResourceIndex);
+                storageContext.ResourceIndex.ReadIndexData(
+                    this.dataFile, dbRoot.ResourceIndex);
+
+                // read in the reservation index
+                storageContext.ReservationIndex.ReadIndexData(
+                    this.dataFile, dbRoot.ReservationIndex);
 
                 // insert the context into the map
                 this.contextMap.Add(context, storageContext);
 
                 return storageContext;
+            }
+        }
+
+        private void aInit(string filePath)
+        {
+            lock (ManagerLock)
+            {
+                // create the empty page manager
+                this.pageManager = new StoragePageManager();
+
+                // open the file
+                this.dataFile = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+
+                DBHdr dbRoot = this.ReadDBRoot();
+                if (null == dbRoot)
+                {
+                    // setup the data file
+                    this.InitializeDataFile();
+
+                    // flush the file
+                    this.dataFile.Flush(true);
+                }
+                else
+                {
+                    // read the data manager
+                    this.pageManager.ReadPageManagerData(
+                        this.dataFile, dbRoot.PageManager);
+                }
             }
         }
 
@@ -354,6 +427,10 @@
             }
         }
 
+        #endregion
+
+        #region Helper Methods
+
         private void InitializeDataFile()
         {
             // helpers
@@ -364,11 +441,18 @@
 
             // create the page table
             StoragePageTable pageTable = new StoragePageTable();
-            dbRoot.PageTable = pageTable.WritePageTableData(this.dataFile, this.pageManager, out oldPages);
+            dbRoot.PageTable = pageTable.WritePageTableData(
+                this.dataFile, this.pageManager, out oldPages);
 
             // create resource index
-            StorageResourceIndex resourceIndx = new StorageResourceIndex();
-            dbRoot.ResourceIndex = resourceIndx.WriteIndexData(this.dataFile, this.pageManager, out oldPages);
+            StorageIndex<RID> resourceIndx = new StorageIndex<RID>();
+            dbRoot.ResourceIndex = resourceIndx.WriteIndexData(
+                this.dataFile, this.pageManager, out oldPages);
+
+            // create reservation index
+            StorageIndex<Customer> reservationIndex = new StorageIndex<Customer>();
+            dbRoot.ReservationIndex = reservationIndex.WriteIndexData(
+                this.dataFile, this.pageManager, out oldPages);
 
             // write the page manager            
             dbRoot.PageManager = this.pageManager.WritePageManagerData(this.dataFile);
@@ -400,6 +484,8 @@
             rootPage.AddRecord(dbRoot);
             rootPage.WritePageData(this.dataFile, RootPage);
         }
+
+        #endregion
 
         #endregion
     }

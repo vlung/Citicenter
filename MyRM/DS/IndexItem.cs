@@ -7,11 +7,11 @@ using System.Text;
     using TP;
 
     [System.Serializable()]
-    public class RIndexItem
+    public class IndexItem<T>
     {
         #region Private Members
 
-        private RID i;
+        private T i;
         private int p;
         private int r;
 
@@ -33,7 +33,7 @@ using System.Text;
             }
         }
 
-        public RID ResourceId
+        public T ResourceId
         {
             get
             {

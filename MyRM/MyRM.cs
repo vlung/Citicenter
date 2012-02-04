@@ -362,7 +362,7 @@ namespace MyRM
             r = new HashSet<RID>();
             reservations.Add(c, r);
         }
-        r.Add(ii.getID());
+        r.Add(ii.Id);
 
         ii.decrCount();
         

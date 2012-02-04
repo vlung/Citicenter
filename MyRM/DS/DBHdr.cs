@@ -33,5 +33,11 @@ namespace MyRM.DS
             get;
             set;
         }
+
+        public int ReservationIndex
+        {
+            get;
+            set;
+        }
     }
 }

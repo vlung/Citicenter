@@ -20,11 +20,11 @@ namespace MyRM
 
         public Reservation(Customer rID, RID[] resources)
         {
-            this.ID = rID;
+            this.Id = rID;
             this.Resources = resources;
         }
 
-        public Customer ID
+        public Customer Id
         {
             get
             {
@@ -48,7 +48,7 @@ namespace MyRM
                 return this.resourceList.ToArray();
             }
 
-            private set
+            set
             {
                 if (null == this.resourceList)
                 {
@@ -67,15 +67,67 @@ namespace MyRM
                 this.resourceList = new List<RID>();
             }
 
+            if (this.resourceList.Contains(resource))
+            {
+                // already have this resource
+                return;
+            }
+
             this.resourceList.Add(resource);
         }
 
-        public int hashCode()
+        public bool Equals(Reservation other)
         {
-            return rID.GetHashCode();
+            if (null == other)
+            {
+                return false;
+            }
+
+            // compare ids
+            if (!this.Id.Equals(other.Id))
+            {
+                return false;
+            }
+
+            // compare lists
+            if (this.resourceList.Count() != other.resourceList.Count())
+            {
+                return false;
+            }
+
+            // compare each resource
+            foreach (var resource in this.resourceList)
+            {
+                if (!other.resourceList.Contains(resource))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        public string ToString()
+        public override bool Equals(object obj)
+        {
+            if (base.Equals(obj))
+            {
+                return true;
+            }
+
+            if (obj is Reservation)
+            {
+                return this.Equals((Reservation)obj);
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
+        }
+
+        public override string ToString()
         {
             StringBuilder builder = new StringBuilder();
             builder.Append(rID.ToString());
