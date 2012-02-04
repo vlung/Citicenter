@@ -7,6 +7,19 @@ namespace MyRM
 {
     public class StorageContext
     {
+        #region Constructors
+
+        public StorageContext()
+        {
+            this.PageTable = new StoragePageTable();
+            this.ResourceIndex = new StorageResourceIndex();
+            
+            this.AllocatedPageList = new List<int>();
+            this.FreedPageList = new List<int>();
+        }
+
+        #endregion
+
         public StoragePageTable PageTable
         {
             get;
@@ -19,7 +32,13 @@ namespace MyRM
             set;
         }
 
-        public StorageFreeSpaceManager FreePageList
+        public List<int> AllocatedPageList
+        {
+            get;
+            set;
+        }
+
+        public List<int> FreedPageList
         {
             get;
             set;

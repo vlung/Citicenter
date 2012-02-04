@@ -55,7 +55,7 @@
             this.indexMap[resourceId] = address;
         }
 
-        public int WriteIndexData(FileStream stream, StorageFreeSpaceManager mgr)
+        public int WriteIndexData(FileStream stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
 
@@ -63,12 +63,12 @@
             ListWriter<RIndexItem> writer = new ListWriter<RIndexItem>();
             writer.WriteList(
                 stream, 
-                mgr, 
+                manager, 
                 this.indexMap.Values.Where(c => c != null).ToList(), 
                 out pageIdxList);
 
             // update the list that stores the physical page idx
-            mgr.SetFreePages(this.indexStoragePages);
+            freedPages = this.indexStoragePages;
             this.indexStoragePages = pageIdxList;
 
             // mark all items as clean

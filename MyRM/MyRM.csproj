@@ -55,7 +55,7 @@
     <Compile Include="Reservation.cs" />
     <Compile Include="Resource.cs" />
     <Compile Include="StorageContext.cs" />
-    <Compile Include="StorageFreeSpaceManager.cs" />
+    <Compile Include="StoragePageManager.cs" />
     <Compile Include="StorageManager.cs" />
     <Compile Include="StoragePage.cs" />
     <Compile Include="StoragePageTable.cs" />

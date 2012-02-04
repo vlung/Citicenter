@@ -23,14 +23,15 @@ namespace MyRM
             this.pageTableStoragePages = new List<int>();
         }
 
-        public int GetPhysicalPage(int logocalPage)
+        public int GetPhysicalPage(int logicalPage)
         {
-            if (0 <= logocalPage
-                && this.pageTable.Count > logocalPage)
+            if (logicalPage >= 0
+                && this.pageTable.Count > logicalPage)
             {
-                return this.pageTable[logocalPage].PageIndex;
+                return this.pageTable[logicalPage].PageIndex;
             }
-            else if (0 < this.pageTable.Count)
+            else if (this.pageTable.Count <= logicalPage
+                && this.pageTable.Count > 0)
             {
                 return this.pageTable[this.pageTable.Count - 1].PageIndex;
             }
@@ -62,16 +63,16 @@ namespace MyRM
             this.pageTable[logicalPage].IsDirty = true;
         }        
 
-        public int WritePageTableData(FileStream stream, StorageFreeSpaceManager mgr)
+        public int WritePageTableData(FileStream stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
 
             // create the writer
             ListWriter<PageTableItem> writer = new ListWriter<PageTableItem>();
-            writer.WriteList(stream, mgr, this.pageTable, out pageIdxList);
+            writer.WriteList(stream, manager, this.pageTable, out pageIdxList);
 
             // update the list that stores the physical page idx
-            mgr.SetFreePages(this.pageTableStoragePages);
+            freedPages = this.pageTableStoragePages;
             this.pageTableStoragePages = pageIdxList;
 
             // mark all items as clean
@@ -102,7 +103,7 @@ namespace MyRM
                 }
             }
 
-            // add the missing one
+            // add the missing ones
             if (this.pageTable.Count < itemList.Count)
             {
                 this.pageTable.AddRange(

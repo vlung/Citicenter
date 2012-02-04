@@ -74,7 +74,8 @@
                 File.Delete(dataFile);
             }
 
-            StorageFreeSpaceManager spaceMgr = new StorageFreeSpaceManager();
+            List<int> freedPages = null;
+            StoragePageManager spaceMgr = new StoragePageManager();
             StoragePageTable pageTable2 = new StoragePageTable();
             StoragePageTable pageTable = new StoragePageTable();
             for (int idx = 0; idx < entryCount; idx++)
@@ -84,7 +85,7 @@
 
             using (FileStream dataFileStream = File.Open(dataFile, FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
-                int root = pageTable.WritePageTableData(dataFileStream, spaceMgr);
+                int root = pageTable.WritePageTableData(dataFileStream, spaceMgr, out freedPages);
                 dataFileStream.Seek(0, SeekOrigin.Begin);
                 pageTable2.ReadPageTableData(dataFileStream, root);
             }

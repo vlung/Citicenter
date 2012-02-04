@@ -16,6 +16,12 @@ namespace MyRM.DS
 
         #endregion
 
+        public int PageManager
+        {
+            get;
+            set;
+        }
+
         public int PageTable
         {
             get;
@@ -23,12 +29,6 @@ namespace MyRM.DS
         }
 
         public int ResourceIndex
-        {
-            get;
-            set;
-        }
-
-        public int LastResourcePage
         {
             get;
             set;

@@ -17,10 +17,11 @@
 
         #region Private Members
 
-        private static object DataFileLock = new object();
+        private static object ManagerLock = new object();
 
         private FileStream dataFile;
         private Dictionary<Transaction, StorageContext> contextMap;
+        public StoragePageManager pageManager;
 
         #endregion
 
@@ -29,21 +30,24 @@
         public static StorageManager CreateObject(string filePath)
         {
             StorageManager obj = new StorageManager();
-            obj.Init(filePath);
+            obj.aInit(filePath);
 
             return obj;
         }
 
         public void Commit(Transaction context)
         {
-            StorageContext storageContext = this.GetStorageContext(context, true);
-            if (null == storageContext)
+            lock(ManagerLock)
             {
-                throw new Exception();
-            }
+                StorageContext storageContext = null;
+                if (!this.contextMap.TryGetValue(context, out storageContext))
+                {
+                    // transaction must already have been commited or aborted
+                    // nothing to do
+                    return;
+                }
+                this.contextMap.Remove(context);
 
-            lock(DataFileLock)
-            {
                 DBHdr dbRoot = this.ReadDBRoot();
                 if (null == dbRoot)
                 {
@@ -59,20 +63,58 @@
                     this.dataFile, dbRoot.ResourceIndex);
 
                 // write the page table
+                List<int> oldPageTablePages = null;
                 dbRoot.PageTable = storageContext.PageTable.WritePageTableData(
-                    this.dataFile, storageContext.FreePageList);
+                    this.dataFile, this.pageManager, out oldPageTablePages);
 
                 // write the resource index
+                List<int> oldResourceIndexPages = null;
                 dbRoot.ResourceIndex = storageContext.ResourceIndex.WriteIndexData(
-                    this.dataFile, storageContext.FreePageList);
+                    this.dataFile, this.pageManager, out oldResourceIndexPages);
+
+                // update the page manager
+                this.pageManager.SetFreePages(oldPageTablePages);
+                this.pageManager.SetFreePages(oldResourceIndexPages);
+                this.pageManager.SetFreePages(storageContext.FreedPageList);
+                dbRoot.PageManager = this.pageManager.WritePageManagerData(
+                    this.dataFile);
 
                 this.WriteDBRoot(dbRoot);
-                this.dataFile.Flush();
+                this.dataFile.Flush(true);
             }
+
+            // TODO: unlock
         }
 
         public void Abort(Transaction context)
         {
+            lock (ManagerLock)
+            {
+                StorageContext storageContext = null;
+                if (!this.contextMap.TryGetValue(context, out storageContext))
+                {
+                    // transaction must already have been commited or aborted
+                    // nothing to do
+                    return;
+                }
+                this.contextMap.Remove(context);
+
+                DBHdr dbRoot = this.ReadDBRoot();
+                if (null == dbRoot)
+                {
+                    throw new Exception();
+                }
+
+                // update the page manager
+                this.pageManager.SetFreePages(storageContext.AllocatedPageList);
+                dbRoot.PageManager = this.pageManager.WritePageManagerData(
+                    this.dataFile);
+
+                this.WriteDBRoot(dbRoot);
+                this.dataFile.Flush(true);
+            }
+
+            // TODO: unlock
         }
 
         public bool Read(Transaction context, out List<Customer> data)
@@ -90,7 +132,7 @@
         public bool Read(Transaction context, RID rID, out Resource data)
         {
             // TODO: Add locking
-            StorageContext storageContext = this.GetStorageContext(context, false);
+            StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
             {
                 throw new Exception();
@@ -109,7 +151,7 @@
 
             // get the page
             StoragePage page = new StoragePage();
-            page.ReadPageData(this.dataFile, fileAddress);
+            this.aReadPageData(page, fileAddress);
 
             // read the data
             data = (Resource)page.ReadRecord(address.Record);
@@ -126,7 +168,7 @@
         public bool Write(Transaction context, Resource data)
         {
             // TODO: Add locking
-            StorageContext storageContext = this.GetStorageContext(context, false);
+            StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
             {
                 throw new Exception();
@@ -150,7 +192,7 @@
             StoragePage page = new StoragePage();
             if (0 <= fileAddress)
             {
-                page.ReadPageData(this.dataFile, fileAddress);
+                this.aReadPageData(page, fileAddress);
             }
 
             // write the record
@@ -179,12 +221,7 @@
             }
 
             // write the page
-            if (0 <= fileAddress)
-            {
-                storageContext.FreePageList.SetFreePage(fileAddress);
-            }
-            fileAddress = page.WritePageData(
-                this.dataFile, storageContext.FreePageList.GetFreePage(this.dataFile));
+            fileAddress = this.aWritePageData(page, storageContext, fileAddress);
 
             // update the page table
             if (0 > address.Page)
@@ -202,17 +239,9 @@
             return true;
         }
 
+        
+
         public bool Write(Transaction context, Reservation data)
-        {
-            return true;
-        }
-
-        public bool Delete(Transaction context, RID rID)
-        {
-            return true;
-        }
-
-        public bool Delete(Transaction context, Customer rID)
         {
             return true;
         }
@@ -229,40 +258,50 @@
             this.contextMap = new Dictionary<Transaction, StorageContext>();
         }
 
-        protected void Init(string filePath)
+        protected void aInit(string filePath)
         {
-            lock (DataFileLock)
+            lock (ManagerLock)
             {
+                // create the empty page manager
+                this.pageManager = new StoragePageManager();
+
                 // open the file
                 this.dataFile = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
                 DBHdr dbRoot = this.ReadDBRoot();
-                if (null == dbRoot) 
+                if (null == dbRoot)
                 {
                     // setup the data file
                     this.InitializeDataFile();
-                }
 
-                // flush the file
-                this.dataFile.Flush();
-                //this.dataFile.Close();
+                    // flush the file
+                    this.dataFile.Flush(true);
+                }
+                else
+                {
+                    // read the data manager
+                    this.pageManager.ReadPageManagerData(
+                        this.dataFile, dbRoot.PageManager);
+                }
             }
         }
 
-        protected StorageContext GetStorageContext(Transaction context, bool remove)
-        {
-            StorageContext storageContext = null;
-            if (this.contextMap.TryGetValue(context, out storageContext))
-            {
-                if (remove)
-                {
-                    this.contextMap.Remove(context);
-                }
-                return storageContext;
-            }
+        #endregion
 
+        #region Private Methods
+
+        private StorageContext aGetStorageContext(Transaction context)
+        {
             lock (dataFile)
             {
+                // look for the context in the map
+                StorageContext storageContext = null;
+                if (this.contextMap.TryGetValue(context, out storageContext))
+                {
+                    return storageContext;
+                }
+
+                // create a brand new storage context
                 // read the DBRoot record
                 DBHdr dbRoot = ReadDBRoot();
                 if (null == dbRoot)
@@ -270,42 +309,69 @@
                     throw new Exception();
                 }
 
-                // read in the page table
+                // create the storage context
                 storageContext = new StorageContext();
-                storageContext.PageTable = new StoragePageTable();
+
+                // read in the page table
                 storageContext.PageTable.ReadPageTableData(this.dataFile, dbRoot.PageTable);
 
                 // read in the resource index
-                storageContext.ResourceIndex = new StorageResourceIndex();
                 storageContext.ResourceIndex.ReadIndexData(this.dataFile, dbRoot.ResourceIndex);
 
-                // read the free page list
-                storageContext.FreePageList = new StorageFreeSpaceManager();
-            }
+                // insert the context into the map
+                this.contextMap.Add(context, storageContext);
 
-            this.contextMap.Add(context, storageContext);
-            return storageContext;
+                return storageContext;
+            }
         }
 
-        #endregion
+        private void aReadPageData(StoragePage page, int pageIndex)
+        {
+            lock(ManagerLock)
+            {
+                page.ReadPageData(this.dataFile, pageIndex);
+            }
+        }
 
-        #region Private Methods
+        private int aWritePageData(StoragePage page, StorageContext storageContext, int fileAddress)
+        {
+            lock (ManagerLock)
+            {
+                // store the index of the current page
+                if (0 <= fileAddress)
+                {
+                    storageContext.FreedPageList.Add(fileAddress); ;
+                }
+
+                // write the page
+                fileAddress = page.WritePageData(
+                    this.dataFile, this.pageManager.GetFreePage(this.dataFile));
+
+                // store the index of the page we just wrote to
+                storageContext.AllocatedPageList.Add(fileAddress);
+
+                return fileAddress;
+            }
+        }
 
         private void InitializeDataFile()
         {
+            // helpers
+            List<int> oldPages = null;
+
             DBHdr dbRoot = new DBHdr();
             WriteDBRoot(dbRoot);
 
-            // create the free space manager
-            StorageFreeSpaceManager spaceMgr = new StorageFreeSpaceManager();
-
             // create the page table
             StoragePageTable pageTable = new StoragePageTable();
-            dbRoot.PageTable = pageTable.WritePageTableData(this.dataFile, spaceMgr);
+            dbRoot.PageTable = pageTable.WritePageTableData(this.dataFile, this.pageManager, out oldPages);
 
             // create resource index
             StorageResourceIndex resourceIndx = new StorageResourceIndex();
-            dbRoot.ResourceIndex = resourceIndx.WriteIndexData(this.dataFile, spaceMgr);
+            dbRoot.ResourceIndex = resourceIndx.WriteIndexData(this.dataFile, this.pageManager, out oldPages);
+
+            // write the page manager            
+            dbRoot.PageManager = this.pageManager.WritePageManagerData(this.dataFile);
 
             // write the dbRoot one more time
             WriteDBRoot(dbRoot);

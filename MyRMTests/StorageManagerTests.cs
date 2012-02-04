@@ -145,6 +145,37 @@
                 Assert.Fail("Test read of missing item failed.");
             }
             
+            // test abort
+            Resource[] data2 = 
+            {
+                new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 43)
+                , new Resource(new RID(RID.Type.CAR, "Boston"), 10, 43)
+                , new Resource(new RID(RID.Type.CAR, "San Diego"), 10, 40)
+                , new Resource(new RID(RID.Type.CAR, "New York"), 10, 47)
+                , new Resource(new RID(RID.Type.CAR, "Montreal"), 10, 33)
+                , new Resource(new RID(RID.Type.CAR, "Vancouver"), 10, 55)
+            };
+
+            // write the data
+            Transaction context3 = new Transaction();
+            foreach (var item in data2)
+            {
+                mgr.Write(context3, item);
+            }
+            mgr.Abort(context3);
+
+            // read the data in a new transaction
+            Transaction context4 = new Transaction();
+            foreach (var item in data)
+            {
+                Resource output = null;
+                if (!mgr.Read(context4, item.getID(), out output))
+                {
+                    Assert.Fail("Different transaction: Read of [{0}] was un-successful.", item.ToString());
+                }
+                Assert.AreEqual<Resource>(item, output, "Different transaction: Read was un-successful.");
+            }
+            mgr.Commit(context4);
         }
     }
 }
