@@ -79,6 +79,10 @@
             // mark all items as clean
             foreach (var item in this.indexMap.Values)
             {
+                if (null == item)
+                {
+                    continue;
+                }
                 item.IsDirty = false;
             }
 

@@ -60,12 +60,19 @@
             this.lockManager.UnlockAll(context);
         }        
 
+        /// <summary>
+        /// Gets the list of all customers.
+        /// 
+        /// No locking needed since we are only enforcing "Read commited" 
+        /// degree of isolation for this query transaction.
+        /// We get that for free here since we only access the reservation
+        /// index which is read atomically.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="data"></param>
+        /// <returns>true if successful, false otherwise</returns>
         public bool Read(Transaction context, out List<Customer> data)
         {
-            //
-            // TODO: add lock
-            //
-
             StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
             {
@@ -80,12 +87,18 @@
             return true;
         }
 
+        /// <summary>
+        /// Gets the list of all resources of a certain type.
+        /// 
+        /// We will provide "read commited" isolation here, buy locking the record during the read 
+        /// and then unlocking it as soon as we are done with the read.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="rType"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
         public bool Read(Transaction context, RID.Type rType, out List<Resource> data)
         {
-            //
-            // TODO: add lock
-            //
-
             StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
             {
@@ -100,12 +113,18 @@
                     continue;
                 }
 
+                // lock the resource
+                this.LockResource(context, MyLM.LockMode.Read, id);
+
                 Resource resource = null;
                 if (!Read<RID, Resource>(
-                        context, storageContext, storageContext.ResourceIndex, id, out resource))
+                        context, storageContext, storageContext.ResourceIndex, id, false, out resource))
                 {
                     continue;
                 }
+
+                // unlock the resource
+                this.UnLockResource(context, MyLM.LockMode.Read, id);
 
                 data.Add(resource);
             }
@@ -126,7 +145,7 @@
             }
 
             return Read<RID, Resource>(
-                context, storageContext, storageContext.ResourceIndex, rId, out data);
+                context, storageContext, storageContext.ResourceIndex, rId, true, out data);
         }
 
         public bool Read(Transaction context, Customer rId, out Reservation data)
@@ -142,15 +161,15 @@
             }
 
             return Read<Customer, Reservation>(
-                context, storageContext, storageContext.ReservationIndex, rId, out data);
+                context, storageContext, storageContext.ReservationIndex, rId, true, out data);
         }
 
-        public bool Write(Transaction context, Resource data)
+        public bool Write(Transaction context, RID rId, Resource data)
         {
             // Aquire a read lock on the reservation id in case we need to move the
             // record, we are going to write lock the page later on so noone can
             // read or write this record anyways
-            this.LockResource(context, MyLM.LockMode.Write, data.Id);
+            this.LockResource(context, MyLM.LockMode.Write, rId);
 
             StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
@@ -159,15 +178,15 @@
             }
 
             return Write<RID, Resource>(
-                context, storageContext, storageContext.ResourceIndex, data.Id, data);
+                context, storageContext, storageContext.ResourceIndex, rId, data);
         }       
 
-        public bool Write(Transaction context, Reservation data)
+        public bool Write(Transaction context, Customer rId, Reservation data)
         {
             // Aquire a read lock on the reservation id in case we need to move the
             // record, we are going to write lock the page later on so noone can
             // read or write this record anyways
-            this.LockReservation(context, MyLM.LockMode.Write, data.Id);
+            this.LockReservation(context, MyLM.LockMode.Write, rId);
 
             StorageContext storageContext = this.aGetStorageContext(context);
             if (null == storageContext)
@@ -176,7 +195,7 @@
             }
 
             return Write<Customer, Reservation>(
-                context, storageContext, storageContext.ReservationIndex, data.Id, data);
+                context, storageContext, storageContext.ReservationIndex, rId, data);
         }
 
         #endregion
@@ -194,7 +213,7 @@
             this.lockManager = new MyLM();
         }
 
-        protected bool Read<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, out R data)
+        protected bool Read<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, bool lockPage , out R data)
         {
             // look for the resource in the index
             IndexItem<I> address = index.GetResourceAddress(rID);
@@ -204,9 +223,12 @@
                 return false;
             }
 
-            // Aquire a lock on the logical page address to ensure that the page is not
-            // being written while we read the data
-            this.LockPage(context, MyLM.LockMode.Read, address.Page);
+            if (lockPage)
+            {
+                // Aquire a lock on the logical page address to ensure that the page is not
+                // being written while we read the data
+                this.LockPage(context, MyLM.LockMode.Read, address.Page);
+            }
 
             // find the physical page
             int fileAddress = storageContext.PageTable.GetPhysicalPage(address.Page);
@@ -286,6 +308,11 @@
             }
 
             // update the index
+            if (null == data)
+            {
+                // handle deletes
+                address = null;
+            }
             index.SetResourceAddress(rID, address);
 
             return true;
@@ -457,7 +484,7 @@
 
         #endregion
 
-        #region Helper Methods
+        #region Initialization Helper Methods
 
         /// <summary>
         /// Remarks:
@@ -518,11 +545,22 @@
             WriteDBRoot(dbRoot);
         }
 
+        #endregion
+
+        #region Lock Helper Methods
+
         private void LockPage(Transaction context, MyLM.LockMode mode, int page)
         {
             LockableID id = new LockableID(
                 PageLockPrefix, new LockableID(page.ToString()));
             this.Lock(context, mode, id);
+        }
+
+        private void UnLockPage(Transaction context, MyLM.LockMode mode, int page)
+        {
+            LockableID id = new LockableID(
+                PageLockPrefix, new LockableID(page.ToString()));
+            this.UnLock(context, mode, id);
         }
 
         private void LockResource(Transaction context, MyLM.LockMode mode, RID rId)
@@ -532,7 +570,21 @@
             this.Lock(context, mode, id);
         }
 
+        private void UnLockResource(Transaction context, MyLM.LockMode mode, RID rId)
+        {
+            LockableID id = new LockableID(
+                ResourceLockPrefix, new LockableID(rId.ToString()));
+            this.UnLock(context, mode, id);
+        }
+
         private void LockReservation(Transaction context, MyLM.LockMode mode, Customer rId)
+        {
+            LockableID id = new LockableID(
+                ReservationLockPrefix, new LockableID(rId.ToString()));
+            this.UnLock(context, mode, id);
+        }
+
+        private void UnLockReservation(Transaction context, MyLM.LockMode mode, Customer rId)
         {
             LockableID id = new LockableID(
                 ReservationLockPrefix, new LockableID(rId.ToString()));
@@ -560,6 +612,32 @@
                     throw new Exception("Invalid lock mode requested");
             }
         }
+
+        private void UnLock(Transaction context, MyLM.LockMode mode, LockableID id)
+        {
+            switch (mode)
+            {
+                case MyLM.LockMode.Read:
+                    {
+                        this.lockManager
+                                .UnlockRead(context, id);
+                    }
+                    break;
+
+                case MyLM.LockMode.Write:
+                    {
+                        this.lockManager
+                                .UnlockWrite(context, id);
+                    }
+                    break;
+                default:
+                    throw new Exception("Invalid lock mode requested");
+            }
+        }
+
+        #endregion
+
+        #region DB Root Helper Methods
 
         private DBHdr ReadDBRoot()
         {

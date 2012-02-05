@@ -165,6 +165,52 @@
         }
 
         [TestMethod]
+        public void TestDeleteResource()
+        {
+            string dataFile = "TestData22.tpdb";
+            if (File.Exists(dataFile))
+            {
+                File.Delete(dataFile);
+            }
+
+            // cerate the storage manager
+            StorageManager mgr = StorageManager.CreateObject(dataFile);
+
+            // write some data
+            Resource[] data = 
+            {
+                new Resource(new RID(RID.Type.CAR, "Seattle"), 10, 45)
+                , new Resource(new RID(RID.Type.CAR, "Boston"), 10, 45)
+            };
+
+            // write the data
+            WriteResources(null, mgr, data, false);
+
+            // DELETE Item 2
+            Transaction context2 = new Transaction();
+            if (!mgr.Write(context2, data[1].Id, null))
+            {
+                Assert.Fail("Test delete item failed.");
+            }
+
+            Resource missingItem = null;
+            if (mgr.Read(context2, data[1].Id, out missingItem)
+                || null != missingItem)
+            {
+                Assert.Fail("Test read of missing item failed.");
+            }
+            mgr.Commit(context2);
+
+            // read all
+            Resource[] data2 =
+            {
+                data[0]
+            };
+
+            ReadResources(null, mgr, data2);
+        }
+
+        [TestMethod]
         public void TestReadWriteReservations()
         {
             string dataFile = "TestData3.tpdb";
@@ -242,6 +288,52 @@
             mgr.Commit(context2);
         }
 
+        [TestMethod]
+        public void TestDeleteReservation()
+        {
+            string dataFile = "TestData32.tpdb";
+            if (File.Exists(dataFile))
+            {
+                File.Delete(dataFile);
+            }
+
+            // cerate the storage manager
+            StorageManager mgr = StorageManager.CreateObject(dataFile);
+
+            // write some data
+            Reservation[] data = 
+            {
+                new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "1234"), new RID(RID.Type.CAR, "Boston"), new RID(RID.Type.ROOM, "Boston") } )
+                , new Reservation(new Customer(), new RID[]{ new RID(RID.Type.FLIGHT, "1234"), new RID(RID.Type.CAR, "Miami"), new RID(RID.Type.ROOM, "New York") } )
+            };
+
+            // write the data
+            WriteReservations(null, mgr, data, false);
+
+            // DELETE Item 2
+            Transaction context2 = new Transaction();
+            if (!mgr.Write(context2, data[1].Id, null))
+            {
+                Assert.Fail("Test delete item failed.");
+            }
+
+            Reservation missingItem = null;
+            if (mgr.Read(context2, data[1].Id, out missingItem)
+                || null != missingItem)
+            {
+                Assert.Fail("Test read of missing item failed.");
+            }
+            mgr.Commit(context2);
+
+            // read all
+            Reservation[] data2 =
+            {
+                data[0]
+            };
+
+            ReadReservations(null, mgr, data2);
+        }
+
         #region Private Helper Methods
 
         private static void ReadResources(Transaction context, StorageManager storage, Resource[] data)
@@ -303,7 +395,7 @@
             // write the data
             foreach (var item in data)
             {
-                storage.Write(context, item);
+                storage.Write(context, item.Id, item);
             }
 
             // read the data in the same transaction
@@ -332,7 +424,7 @@
             // write the data
             foreach (var item in data)
             {
-                storage.Write(context, item);
+                storage.Write(context, item.Id, item);
             }
 
             // read the data in the same transaction
