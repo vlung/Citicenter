@@ -21,7 +21,7 @@ namespace MyRM
         public Reservation(Customer rID, RID[] resources)
         {
             this.Id = rID;
-            this.Resources = resources;
+            this.Resources = new List<RID>(resources);
         }
 
         public Customer Id
@@ -37,15 +37,11 @@ namespace MyRM
             }
         }
 
-        public RID[] Resources
+        public List<RID> Resources
         {
             get
             {
-                if (null == this.resourceList)
-                {
-                    return null;
-                }
-                return this.resourceList.ToArray();
+                return this.resourceList;
             }
 
             set

@@ -16,12 +16,13 @@
         private int p;
 
         public Resource() 
+            : this(new RID(), 0, 0)
         { 
         }
 
         public Resource(RID rID)
+            : this(rID, 0, 0)
         {
-            this.i = rID;
         }
         public Resource(RID rID, int c, int p)
         {

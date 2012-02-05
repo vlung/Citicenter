@@ -199,6 +199,12 @@
             {
                 Assert.Fail("Test read of missing item failed.");
             }
+
+            // try to delete item again
+            if (!mgr.Write(context2, data[1].Id, null))
+            {
+                Assert.Fail("Test delete item failed.");
+            }
             mgr.Commit(context2);
 
             // read all
@@ -322,6 +328,12 @@
                 || null != missingItem)
             {
                 Assert.Fail("Test read of missing item failed.");
+            }
+
+            // try to delete item a second time
+            if (!mgr.Write(context2, data[1].Id, null))
+            {
+                Assert.Fail("Test delete item failed.");
             }
             mgr.Commit(context2);
 

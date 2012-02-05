@@ -247,7 +247,15 @@
         {
             // look for the resource in the index
             IndexItem<I> address = index.GetResourceAddress(rID);
-            if (null == address)
+            if (null == address
+                && null == data)
+            {
+                // nothing to do:
+                // user probably wanted to delete an non-existing item
+                return true;
+            }
+            else if (null == address
+                     && null != data)
             {
                 address = new IndexItem<I>
                 {
