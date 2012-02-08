@@ -21,7 +21,11 @@ namespace MyRM
         public Reservation(Customer rID, RID[] resources)
         {
             this.Id = rID;
-            this.Resources = new List<RID>(resources);
+            this.Resources = new List<RID>();
+            if (null != resources)
+            {
+                this.Resources.AddRange(resources);
+            }
         }
 
         public Customer Id

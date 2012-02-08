@@ -234,14 +234,18 @@ namespace MyWC
         public void Commit(Transaction context)
         {
             // TODO Auto-generated method stub
-
+            Rooms.Commit(context);
+            Cars.Commit(context);
+            Flights.Commit(context);
         }
 
 
         public void Abort(Transaction context)
         {
             // TODO Auto-generated method stub
-
+            Rooms.Abort(context);
+            Cars.Abort(context);
+            Flights.Abort(context);
         }
 
 

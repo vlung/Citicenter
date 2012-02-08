@@ -27,16 +27,21 @@ namespace CSEP545
             Customer c = new Customer();
             wc.AddCars(t,"Car1", 1, 1);
             wc.AddRooms(t, "Room1", 2, 1);
+            wc.AddSeats(t, "flt231", 2, 1);
+            wc.Commit(t);
             string[] flights = new string[0];
             wc.ReserveItinerary(c,flights,"Room1",false,true);
+
+            t = wc.Start();
             Console.WriteLine(wc.QueryItinerary(t,c));
             string [] rooms = wc.ListRooms(t);
             foreach (string r in rooms)
                 Console.WriteLine(r);
+            wc.Commit(t);
             
             rmcars.SelfDestruct(2);
             rmrooms.SelfDestruct(2);
-            wc.Commit(t);
+            
             Thread.Sleep(1000);
 
             StopTM();

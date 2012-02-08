@@ -87,7 +87,7 @@ namespace MyRM
              */
 
             this.name = "MyRM";
-            this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", this.name));
+            this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", GlobalState.Name));
         }
 
         public void SetName(string _name)
@@ -175,7 +175,6 @@ namespace MyRM
                 System.Threading.Thread.Sleep(2000);
 
             int loopCount = 0;
-
             while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
             {
                 System.Threading.Thread.Sleep(1000);
@@ -191,17 +190,26 @@ namespace MyRM
         // Call to TM to enlist for distributed transaction
         public void Enlist(TP.Transaction context)
         {
-            // transactionManager.Enlist(context);
+            // register with TM trasaction
+            transactionManager.Enlist(context, GlobalState.Name);
         }
 
         public void Commit(TP.Transaction context)
         {
-            // transactionManager.Commit(context);
+            // commit transaction
+            this.dataStore.Commit(context);
+
+            // notify the TM that we commited
+            transactionManager.Commit(context);
         }
 
         public void Abort(TP.Transaction context)
         {
-            // transactionManager.Abort(context);
+            // abort transaction
+            this.dataStore.Abort(context);
+
+            // notify the TM that we aborted
+            transactionManager.Abort(context);
         }
 
         #endregion

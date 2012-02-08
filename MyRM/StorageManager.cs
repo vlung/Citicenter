@@ -7,7 +7,7 @@
     using DS;
     using TP;
 
-    public class StorageManager
+    public class StorageManager : IDisposable
     {
         #region Constants
 
@@ -32,6 +32,9 @@
         // lock manager
         private MyLM lockManager;
 
+        // IDisposible
+        private bool disposed;
+
         #endregion
 
         #region Public Methods
@@ -43,6 +46,21 @@
 
             return obj;
         }
+
+        #region IDisposible
+
+        ~StorageManager()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        #endregion
 
         public void Abort(Transaction context)
         {
@@ -211,9 +229,25 @@
             this.pageManager = new StoragePageManager();
 
             this.lockManager = new MyLM();
+
+            this.disposed = false;
         }
 
-        protected bool Read<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, bool lockPage , out R data)
+        protected virtual void Dispose(bool disposing)
+        {
+            if (this.disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                // close the data files
+                this.dataFile.Dispose();
+            }
+        }
+
+        protected virtual bool Read<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, bool lockPage , out R data)
         {
             // look for the resource in the index
             IndexItem<I> address = index.GetResourceAddress(rID);
@@ -243,7 +277,7 @@
             return true;
         }
 
-        protected bool Write<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, R data)
+        protected virtual bool Write<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, R data)
         {
             // look for the resource in the index
             IndexItem<I> address = index.GetResourceAddress(rID);
