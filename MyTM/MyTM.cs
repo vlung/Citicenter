@@ -14,12 +14,14 @@ namespace MyTM
 	/// </summary>
 	public class MyTM: System.MarshalByRefObject, TP.TM
 	{
-
         private HashSet<RM> resourceManagers;
+        private Dictionary<Transaction, List<string>> activeTransactions;
+
 		public MyTM()
 		{
 			System.Console.WriteLine("Transaction Manager instantiated");
             resourceManagers = new HashSet<RM>();
+            activeTransactions = new Dictionary<Transaction, List<string>>();
 		}
 
         public RM GetResourceMananger(string name)
@@ -38,6 +40,11 @@ namespace MyTM
 		{
 			Transaction context = new Transaction();
 			System.Console.WriteLine( string.Format("TM: Transaction {0} started", context.Id));
+
+            lock (this.activeTransactions)
+            {
+                this.activeTransactions.Add(context, new List<string>());
+            }
 			return context;
 		}
  
@@ -46,9 +53,32 @@ namespace MyTM
 	    /// </summary>
 	    /// <param name="context"></param>
 	    public void Commit(TP.Transaction context)
-	    {
-		    System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
+	    {		    
+            List<string> rmList = GetRMListForTransaction(context);
+            if (null == rmList)
+            {
+                System.Console.WriteLine(string.Format("Transaction {0} unknown", context.Id));
+                return;
+            }
+
+            // send commit to all managers involved in the transaction
+            lock (this.resourceManagers)
+            {
+                foreach(RM mgr in this.resourceManagers)
+                {
+                    if (!rmList.Contains(mgr.GetName()))
+                    {
+                        continue;
+                    }
+
+                    mgr.Commit(context);
+                }
+            }
+
+            System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
 	    }
+
+        
 
 	    /// <summary>
 	    // Call from WC in response to a client's abort
@@ -56,6 +86,27 @@ namespace MyTM
 	    /// <param name="context"></param>
 	    public void Abort(TP.Transaction context)
 	    {
+            List<string> rmList = GetRMListForTransaction(context);
+            if (null == rmList)
+            {
+                System.Console.WriteLine(string.Format("Transaction {0} unknown", context.Id));
+                return;
+            }
+
+            // send abort to all managers involved in the transaction
+            lock (this.resourceManagers)
+            {
+                foreach (RM mgr in this.resourceManagers)
+                {
+                    if (!rmList.Contains(mgr.GetName()))
+                    {
+                        continue;
+                    }
+
+                    mgr.Abort(context);
+                }
+            }
+
 		    System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
 	    }
 
@@ -67,8 +118,20 @@ namespace MyTM
 	    /// <param name="context"></param>
         public bool Enlist(TP.Transaction context, string enlistingRM)
 	    {
+            lock (this.activeTransactions)
+            {
+                if (!this.activeTransactions.ContainsKey(context))
+                {
+                    // an RM is trying to enlist in a transaction 
+                    // the TM knows nothing about - retur false
+                    return false;
+                }
+
+                this.activeTransactions[context].Add(enlistingRM);
+            }
+
 		    System.Console.WriteLine(string.Format( "Transaction {0} enlisted", context.Id ));
-            return false;
+            return true;
 	    }
 
         public void Register(string msg)
@@ -84,7 +147,8 @@ namespace MyTM
             { 
                 Console.WriteLine(e.ToString());
             }
-            lock (resourceManagers)
+
+            lock (this.resourceManagers)
             {
                 resourceManagers.Add(newRM);
             }
@@ -121,6 +185,25 @@ namespace MyTM
         
         protected void readyToServe() 
         {
+        }
+
+        private List<string> GetRMListForTransaction(TP.Transaction context)
+        {
+            List<string> output = null;
+
+            lock (this.activeTransactions)
+            {
+                if (!this.activeTransactions.TryGetValue(context, out output))
+                {
+                    // nothing to do transaction must already have been commited                    
+                    return null;
+                }
+
+                // remove from list
+                this.activeTransactions.Remove(context);
+            }
+
+            return output;
         }
 
         class TMParser : CommandLineParser

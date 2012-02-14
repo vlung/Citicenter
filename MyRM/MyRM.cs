@@ -16,12 +16,6 @@ namespace MyRM
     {
         #region Member Variables
 
-        /*
-        MyLM lockManager;
-        private Dictionary<RID, Resource> resources;
-        private Dictionary<Customer, HashSet<RID>> reservations;
-         */
-
         private StorageManager dataStore = null;
         private string name;
 
@@ -79,13 +73,6 @@ namespace MyRM
 
         public MyRM()
         {
-            /*
-            this.lockManager = new MyLM();
-            
-            resources = new Dictionary<RID, Resource>();
-            reservations = new Dictionary<Customer, HashSet<RID>>();
-             */
-
             this.name = "MyRM";
             this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", GlobalState.Name));
         }
@@ -152,11 +139,9 @@ namespace MyRM
                         foreach (string url in urls)
                         {
                             transactionManager.Register(url + "$" + GlobalState.Name);
-
                         }
 
                         transactionManager.Abort(tid);
-
                     }
                     catch (ArgumentException)
                     {
@@ -165,10 +150,7 @@ namespace MyRM
                         System.Threading.Thread.Sleep(1000);
                     }
                 }
-
-
             }
-
             Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", GlobalState.Name, parser["tm"]);
 
             while (GlobalState.Mode == GlobalState.RunMode.Loop)
@@ -185,34 +167,17 @@ namespace MyRM
             Console.WriteLine("{0}: Exitting", GlobalState.Name);
         }
 
-        #region TP Communication Methods
-
-        // Call to TM to enlist for distributed transaction
-        public void Enlist(TP.Transaction context)
-        {
-            // register with TM trasaction
-            transactionManager.Enlist(context, GlobalState.Name);
-        }
-
         public void Commit(TP.Transaction context)
         {
             // commit transaction
             this.dataStore.Commit(context);
-
-            // notify the TM that we commited
-            transactionManager.Commit(context);
         }
 
         public void Abort(TP.Transaction context)
         {
             // abort transaction
             this.dataStore.Abort(context);
-
-            // notify the TM that we aborted
-            transactionManager.Abort(context);
         }
-
-        #endregion
 
         /// <summary>
         /// Adds a resource to the available ones
@@ -224,9 +189,11 @@ namespace MyRM
         /// <returns></returns>
         public bool Add(Transaction context, RID rId, int count, int price)
         {
-            Resource data = null;
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
             // read the resource
+            Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
             if (!result)
             {
@@ -249,6 +216,9 @@ namespace MyRM
         /// <returns></returns>
         public bool Delete(Transaction context, RID rId)
         {
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
+
             // remove the resource
             bool removed = this.dataStore.Write(context, rId, null);
             if (!removed)
@@ -295,9 +265,11 @@ namespace MyRM
 
         public bool Delete(Transaction context, RID rId, int count)
         {
-            Resource data = null;
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
             // read in the resource
+            Resource data = null;
             bool removed = this.dataStore.Read(context, rId, out data);
             if (!removed
                 || null == data)
@@ -322,10 +294,11 @@ namespace MyRM
 
         public bool Reserve(Transaction context, Customer customer, RID resource)
         {
-            Resource item = null;
-            Reservation data = null;
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
             // get the resource info
+            Resource item = null;
             bool result = this.dataStore.Read(context, resource, out item);
             if (!result)
             {
@@ -337,6 +310,7 @@ namespace MyRM
             }
 
             // get the reservation record
+            Reservation data = null;
             result = this.dataStore.Read(context, customer, out data);
             if (!result)
             {
@@ -371,8 +345,10 @@ namespace MyRM
 
         public void UnReserve(Transaction context, Customer customer)
         {
-            Reservation data = null;
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
+            Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
             if (!result
                 || null == data)
@@ -419,6 +395,9 @@ namespace MyRM
         /// </summary>
         public int Query(Transaction context, RID rId)
         {
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
+
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
             if (!result)
@@ -435,6 +414,9 @@ namespace MyRM
         // </summary>
         public int QueryPrice(Transaction context, RID rId)
         {
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
+
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
             if (!result)
@@ -449,6 +431,9 @@ namespace MyRM
         public string QueryReserved(Transaction context, Customer customer)
         {
             StringBuilder buffer = new StringBuilder(512);
+
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
             Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
@@ -474,6 +459,9 @@ namespace MyRM
         public int QueryReservedPrice(Transaction context, Customer customer)
         {
             int bill = 0;
+
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
 
             // read the reservation data
             Reservation data = null;
@@ -503,6 +491,9 @@ namespace MyRM
 
         public Customer[] ListCustomers(Transaction context)
         {
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
+
             List<Customer> customerList = null;
             bool result = this.dataStore.Read(context, out customerList);
             if (!result)
@@ -515,6 +506,9 @@ namespace MyRM
 
         public string[] ListResources(Transaction context, RID.Type type)
         {
+            // enlist with TM
+            transactionManager.Enlist(context, this.name);
+
             List<Resource> resourceList = null;
             bool result = this.dataStore.Read(context, type, out resourceList);
             if (!result)

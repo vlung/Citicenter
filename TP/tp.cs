@@ -261,128 +261,128 @@ namespace TP
 	/// <summary>
 	/*   Resource Manager Interface */
 	/// </summary>
-	public interface RM
-	{
+    public interface RM
+    {
         /**
-     * get the name of this RM
-     * @return the name of this RM
-     */
-      string GetName();
-
+         * get the name of this RM
+         * @return the name of this RM
+         */
+        string GetName();
         void SetName(string name);
 
-		/// <param name="context"></param>
- 		void Enlist(Transaction context);
+        /// The enlist method is not needed as a public method
+        /// <param name="context"></param>
+        ///void Enlist(Transaction context);
 
-		/// <param name="context"></param>
-		void Commit(Transaction context);
+        /// <param name="context"></param>
+        void Commit(Transaction context);
 
-		/// <param name="context"></param>
-		void Abort(Transaction context);
-	
-		/// <summary>
-		/*   Add "count" items 
-		     This method is equivalent to the addXXX in the Java Interface */
-		/// </summary>
-		/// <param name="context"></param>
-		/// <param name="resource"></param>
-		/// <param name="count"></param>
-		/// <param name="price"></param>
-		/// <returns>success</returns>
-		bool Add(Transaction context, RID resource, int count, int price);
+        /// <param name="context"></param>
+        void Abort(Transaction context);
 
         /// <summary>
-        /* Remove exactly qty unreserved resource from this RM. */
+        /// Add "count" items 
+        /// This method is equivalent to the addXXX in the Java Interface
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="resource"></param>
+        /// <param name="count"></param>
+        /// <param name="price"></param>
+        /// <returns>success</returns>
+        bool Add(Transaction context, RID resource, int count, int price);
+
+        /// <summary>
+        /// Remove exactly qty unreserved resource from this RM.
         /// </summary>
         /// <param name="context"></param>
         /// <param name="resource"></param>
         /// <param name="count"></param>
         bool Delete(Transaction context, RID resource, int count);
 
-       
+
         /// <summary>
         /* Drop resource from this RM. All reservations on resource must be dropped as well. */
         /// </summary>
         /// <param name="context"></param>
         /// <param name="resource"></param>
         bool Delete(Transaction context, RID resource);
-	
-		/// <summary>
-		/*   Query: equivalent to QueryCars, QueryFlights, QueryRooms in the Java interface */
-		/// </summary>
-		/// <param name="context"></param>
-		/// <param name="resource"></param>
-		/// <returns></returns>
+
+        /// <summary>
+        /*   Query: equivalent to QueryCars, QueryFlights, QueryRooms in the Java interface */
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="resource"></param>
+        /// <returns></returns>
         int Query(Transaction context, RID resource);
 
-		/// <param name="context"></param>
-		/// <param name="resource"></param>
-		/// <returns></returns>
+        /// <param name="context"></param>
+        /// <param name="resource"></param>
+        /// <returns></returns>
         int QueryPrice(Transaction context, RID resource);
 
         /// <summary>
-        /*  list of customers who reserve resources managed by this RM */
+        /// list of customers who reserve resources managed by this RM
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
         Customer[] ListCustomers(Transaction context);
 
         /// <summary>
-        /* list of resources */
+        /// list of resources
         /// </summary>
         /// <param name="context"></param>
         /// <param name="type"></param>
         /// <returns>array of comma separated strings of available resource information</returns>
-        string[] ListResources(Transaction context, RID.Type type); 
+        string[] ListResources(Transaction context, RID.Type type);
 
-		//string QueryCustomerInfo(Transaction context, Customer c);
+        //string QueryCustomerInfo(Transaction context, Customer c);
 
-		/// <param name="context"></param>
-		/// <param name="c"></param>
-		/// <returns></returns>
-		//int QueryCustomer(Transaction context, Customer c);
+        /// <param name="context"></param>
+        /// <param name="c"></param>
+        /// <returns></returns>
+        //int QueryCustomer(Transaction context, Customer c);
 
-		/// <param name="context"></param>
-		/// <param name="c"></param>
-		/// <param name="resource"></param>
-		/// <returns>sucess</returns>
+        /// <param name="context"></param>
+        /// <param name="c"></param>
+        /// <param name="resource"></param>
+        /// <returns>sucess</returns>
         bool Reserve(Transaction context, Customer c, RID resource);
 
         /// <summary>
-        /* Get the bill for the customer return a string representation of reservations*/
+        /// Get the bill for the customer return a string representation of reservations
         /// </summary>
         /// <param name="context"></param>
         /// <param name="customer"></param>
         string QueryReserved(Transaction context, Customer customer);
 
         /// <summary>
-        /* Get the total amount of money the customer owes in this RM */
+        /// Get the total amount of money the customer owes in this RM
         /// </summary>
         /// <param name="context"></param>
         /// <param name="customer"></param>
         int QueryReservedPrice(Transaction context, Customer customer);
 
-		/// <param name="context"></param>
-		/// <param name="c"></param>
-		void UnReserve(Transaction context, Customer c);
-		
-		/// <summary>
-		/*   Shutdown should gracefully clean up its files, so when it
-			 restarts, it should not need to recover the state  */
-		///  </summary>
-		void Shutdown();
+        /// <param name="context"></param>
+        /// <param name="c"></param>
+        void UnReserve(Transaction context, Customer c);
 
-		/// <summary>
-		/*   Exit (simulate a failure) after a specified number of disk writes.
-		     Support for this method requires a wrapper around the system's 
-		     write system call that decrements the counter set by this method.
-		     This counter should be set to zero by default, which makes the wrapper
-		     doing nothing.  If the counter is non-zero, the wrapper should decrement								     
-		     it, see if it is zero, and if so call exit().
-		     This method is not part of a transaction. It is intended to simulate an
-			 RM failure. */
-		/// </summary>
-		/// <param name="diskWritesToWait"></param>
-		void SelfDestruct(int diskWritesToWait);
-	}
+        /// <summary>
+        /// Shutdown should gracefully clean up its files, so when it
+        ///	restarts, it should not need to recover the state
+        /// </summary>
+        void Shutdown();
+
+        /// <summary>
+        ///  Exit (simulate a failure) after a specified number of disk writes.
+        ///  Support for this method requires a wrapper around the system's 
+        ///  write system call that decrements the counter set by this method.
+        ///  This counter should be set to zero by default, which makes the wrapper
+        ///  doing nothing.  If the counter is non-zero, the wrapper should decrement								     
+        ///  it, see if it is zero, and if so call exit().
+        ///  This method is not part of a transaction. It is intended to simulate an
+        ///	 RM failure.
+        /// </summary>
+        /// <param name="diskWritesToWait"></param>
+        void SelfDestruct(int diskWritesToWait);
+    }
 }

@@ -226,26 +226,19 @@ namespace MyWC
 
         public Transaction Start()
         {
-            // TODO Auto-generated method stub
             return TransactionManager.Start();
         }
 
 
         public void Commit(Transaction context)
         {
-            // TODO Auto-generated method stub
-            Rooms.Commit(context);
-            Cars.Commit(context);
-            Flights.Commit(context);
+            TransactionManager.Commit(context);
         }
 
 
         public void Abort(Transaction context)
         {
-            // TODO Auto-generated method stub
-            Rooms.Abort(context);
-            Cars.Abort(context);
-            Flights.Abort(context);
+            TransactionManager.Abort(context);
         }
 
 
