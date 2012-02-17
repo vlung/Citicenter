@@ -12,59 +12,59 @@ namespace MyTM
 	/// <summary>
 	/*  Transaction Manager */
 	/// </summary>
-	public class MyTM: System.MarshalByRefObject, TP.TM
-	{
+    public class MyTM : System.MarshalByRefObject, TP.TM
+    {
+        #region Private Properties
+
         private HashSet<RM> resourceManagers;
         private Dictionary<Transaction, List<string>> activeTransactions;
 
-		public MyTM()
-		{
-			System.Console.WriteLine("Transaction Manager instantiated");
+        #endregion
+
+        #region Public Methods
+
+        public MyTM()
+        {
+            System.Console.WriteLine("Transaction Manager instantiated");
             resourceManagers = new HashSet<RM>();
             activeTransactions = new Dictionary<Transaction, List<string>>();
-		}
-
-        public RM GetResourceMananger(string name)
-        {
-            lock (resourceManagers)
-            {
-                foreach (RM rm in resourceManagers)
-                {
-                    if (rm.GetName().Contains(name.ToLower()))
-                        return rm;
-                }
-            }
-            return null;
         }
-		public TP.Transaction Start()
-		{
-			Transaction context = new Transaction();
-			System.Console.WriteLine( string.Format("TM: Transaction {0} started", context.Id));
+
+        #region Methods called from WC
+
+        /// <summary>
+        /// Call from W to start a new transaction.
+        /// </summary>
+        /// <returns>new transaction object</returns>
+        public Transaction Start()
+        {
+            Transaction context = new Transaction();
+            System.Console.WriteLine(string.Format("TM: Transaction {0} started", context.Id));
 
             lock (this.activeTransactions)
             {
                 this.activeTransactions.Add(context, new List<string>());
             }
-			return context;
-		}
- 
-	    /// <summary>
-	    //	 Call from WC in response to a client's commit
-	    /// </summary>
-	    /// <param name="context"></param>
-	    public void Commit(TP.Transaction context)
-	    {		    
+            return context;
+        }
+
+        /// <summary>
+        //	 Call from WC in response to a client's commit.
+        /// </summary>
+        /// <param name="context"></param>
+        public void Commit(TP.Transaction context)
+        {
             List<string> rmList = GetRMListForTransaction(context);
             if (null == rmList)
             {
                 System.Console.WriteLine(string.Format("Transaction {0} unknown", context.Id));
-                return;
+                throw new AbortTransationException();
             }
 
             // send commit to all managers involved in the transaction
             lock (this.resourceManagers)
             {
-                foreach(RM mgr in this.resourceManagers)
+                foreach (RM mgr in this.resourceManagers)
                 {
                     if (!rmList.Contains(mgr.GetName()))
                     {
@@ -76,16 +76,14 @@ namespace MyTM
             }
 
             System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
-	    }
+        }
 
-        
-
-	    /// <summary>
-	    // Call from WC in response to a client's abort
-	    /// </summary>
-	    /// <param name="context"></param>
-	    public void Abort(TP.Transaction context)
-	    {
+        /// <summary>
+        // Call from WC in response to a client's abort
+        /// </summary>
+        /// <param name="context"></param>
+        public void Abort(TP.Transaction context)
+        {
             List<string> rmList = GetRMListForTransaction(context);
             if (null == rmList)
             {
@@ -107,85 +105,142 @@ namespace MyTM
                 }
             }
 
-		    System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
-	    }
+            System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
+        }
 
-	    /// <summary>
-	    /*  Called by RM.
-		    This method notifies TM that it is involved in a given transaction
-		    TM keeps track of which RM is enlisted with which transaction to do distributed transactions */
-	    /// </summary>
-	    /// <param name="context"></param>
-        public bool Enlist(TP.Transaction context, string enlistingRM)
-	    {
-            lock (this.activeTransactions)
+        /// <summary>
+        /// Call from WC to retreive an RM by name.
+        /// </summary>
+        /// <param name="name">name of RM to get</param>
+        /// <returns>RM object</returns>
+        public RM GetResourceMananger(string name)
+        {
+            lock (resourceManagers)
             {
-                if (!this.activeTransactions.ContainsKey(context))
+                foreach (RM rm in resourceManagers)
                 {
-                    // an RM is trying to enlist in a transaction 
-                    // the TM knows nothing about - retur false
-                    return false;
+                    if (rm.GetName().Contains(name.ToLower()))
+                        return rm;
                 }
-
-                this.activeTransactions[context].Add(enlistingRM);
             }
+            return null;
+        }
 
-		    System.Console.WriteLine(string.Format( "Transaction {0} enlisted", context.Id ));
-            return true;
-	    }
+        #endregion
 
+        #region Methods called from RM
+
+        /// <summary>
+        /// Called by RM to register it's URL with the TM.
+        /// </summary>
+        /// <param name="msg"></param>
         public void Register(string msg)
         {
-            string [] URL = msg.Split('$');
-            Console.WriteLine("Register "+ URL[0]);
+            string[] URL = msg.Split('$');
+            Console.WriteLine("Register " + URL[0]);
+
             TP.RM newRM = (TP.RM)System.Activator.GetObject(typeof(TP.RM), URL[0]);
             try
             {
-               newRM.SetName(URL[1]);
+                newRM.SetName(URL[1]);
             }
             catch (RemotingException e)
-            { 
+            {
                 Console.WriteLine(e.ToString());
             }
 
+            // check and see if this RM is currently involved in any active 
+            // transactions and remove all those from the active list next 
+            // operation on that transaction will cause an abort
+            lock (this.activeTransactions)
+            {
+                foreach (Transaction context in this.activeTransactions.Keys)
+                {
+                    if (!this.activeTransactions[context].Contains(newRM.GetName()))
+                    {
+                        continue;
+                    }
+
+                    // remove the transaction from the active list
+                    this.activeTransactions.Remove(context);
+                }
+            }
+
+            // add the new RM to the list
             lock (this.resourceManagers)
             {
                 resourceManagers.Add(newRM);
             }
         }
 
-        public void shutdown() 
+        /// <summary>
+        /// Called by RM.
+        /// This method notifies TM that it is involved in a given transaction
+        /// TM keeps track of which RM is enlisted with which transaction to do distributed transactions */
+        /// </summary>
+        /// <param name="context"></param>
+        public bool Enlist(TP.Transaction context, string enlistingRM)
+        {
+            lock (this.activeTransactions)
+            {
+                if (!this.activeTransactions.ContainsKey(context))
+                {
+                    // an RM is trying to enlist in a transaction 
+                    // the TM knows nothing about - return false
+                    return false;
+                }
+
+                this.activeTransactions[context].Add(enlistingRM);
+            }
+
+            System.Console.WriteLine(string.Format("Transaction {0} enlisted", context.Id));
+            return true;
+        }
+
+        
+
+        #endregion
+
+        #endregion
+
+        #region Protected Methods
+
+        public void shutdown()
         {
             // TODO DO PROPER SHUTDOWN HERE
         }
 
-        
-        protected void init(String[] args) 
+
+        protected void init(String[] args)
         {
         }
 
-        
+
         protected void initStorage()
         {
             // TODO create commit log
         }
 
-        
+
         protected void recovery()
         {
             // TODO Abort/commit/garbage collect
         }
 
-        
-        protected void startUp() 
+
+        protected void startUp()
         {
             // TODO start garbage collector?
         }
 
-        
-        protected void readyToServe() 
+
+        protected void readyToServe()
         {
         }
+
+        #endregion
+
+        #region Private Methods
 
         private List<string> GetRMListForTransaction(TP.Transaction context)
         {
@@ -205,6 +260,33 @@ namespace MyTM
 
             return output;
         }
+
+        #endregion
+
+        #region Exception Classes
+
+        [Serializable]
+        public class AbortTransationException : System.Exception
+        {
+            public AbortTransationException()
+                : base("Unable resolve logical address.")
+            {
+            }
+
+            public AbortTransationException(string message)
+                : base(message)
+            {
+            }
+
+            public AbortTransationException(string message, System.Exception e)
+                : base(message, e)
+            {
+            }
+        }
+
+        #endregion
+
+        #region Process Startup
 
         class TMParser : CommandLineParser
         {
@@ -245,5 +327,6 @@ namespace MyTM
             }
         }
 
-}
+        #endregion
+    }
 }

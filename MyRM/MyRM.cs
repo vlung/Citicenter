@@ -16,156 +16,30 @@ namespace MyRM
     {
         #region Member Variables
 
+        private string name = null;
         private StorageManager dataStore = null;
-        private string name;
 
         #endregion
 
         static TP.TM transactionManager = null;
 
-        internal class GlobalState
-        {
-            public enum RunMode
-            {
-                Loop,
-                Wait,
-                Kill
-            }
-
-            public static RunMode Mode = RunMode.Loop;
-            public const string DefaultName = "MyRM";
-
-            private const int MaxNameLength = 21;
-            private static string name = null;
-
-            public static string Name
-            {
-                get
-                {
-                    if (name == null)
-                    {
-                        name = DefaultName;
-                    }
-
-                    return name;
-                }
-                set
-                {
-                    if (name == null)
-                    {
-                        string temp = value.Trim();
-                        if (temp.IndexOfAny(System.IO.Path.GetInvalidPathChars()) < 0 && temp.Length <= MaxNameLength)
-                        {
-                            name = temp;
-                        }
-                        else
-                        {
-                            throw new ArgumentException(String.Format("\"{0}\" is not a valid MyRM Name", temp), "Name");
-                        }
-                    }
-                    else
-                    {
-                        throw new ArgumentException(String.Format("\"{0}\" is not valid at this time, MyRM Name is already set to \"{1}\"", value, name), "Name");
-                    }
-                }
-            }
-        }
-
         public MyRM()
         {
-            this.name = "MyRM";
+            this.name = GlobalState.Name;
             this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", GlobalState.Name));
         }
 
         public void SetName(string _name)
         {
-            name = _name;
+            this.name = _name;
         }
 
         public string GetName()
         {
-            return name;
+            return this.name;
         }
 
-        class RMParser : CommandLineParser
-        {
-            public RMParser()
-            {
-                Add("p", "Port", "The port this Resource Manager listens on", "8081");
-                Add("n", "Name", "The name of this Resource Manager", GlobalState.DefaultName);
-                Add("tm", "TM", "The URL of the Transaction Manager.  Specify \"NONE\" to run this RM in stand alone mode", "http://localhost:8089/TM.soap");
-            }
-        }
-
-        static void Main(string[] args)
-        {
-            RMParser parser = new RMParser();
-
-            if (!parser.Parse(args))
-            {
-                return;
-            }
-
-            GlobalState.Name = parser["n"].ToLower();
-            string port_num = parser["p"];
-
-            System.Collections.Specialized.ListDictionary channelProperties = new System.Collections.Specialized.ListDictionary();
-
-            channelProperties.Add("port", port_num);
-            channelProperties.Add("name", GlobalState.Name);
-
-            HttpChannel channel = new HttpChannel(channelProperties, new SoapClientFormatterSinkProvider(), new SoapServerFormatterSinkProvider());
-
-            System.Console.WriteLine(string.Format("Starting resource manager for {0} on port {1}", GlobalState.Name, port_num));
-            System.Runtime.Remoting.Channels.ChannelServices.RegisterChannel(channel, false);
-
-            System.Runtime.Remoting.RemotingConfiguration.RegisterWellKnownServiceType
-            (Type.GetType("MyRM.MyRM")									// Assembly name
-                  , "RM.soap"												// URI
-                  , System.Runtime.Remoting.WellKnownObjectMode.Singleton	// Instancing mode
-            );
-
-
-            if (String.Compare(parser["tm"], "none", true) != 0)
-            {
-                while (transactionManager == null)
-                {
-                    try
-                    {
-                        transactionManager = (TP.TM)System.Activator.GetObject(typeof(TP.TM), parser["tm"]);
-
-                        Transaction tid = transactionManager.Start();
-                        string[] urls = channel.GetUrlsForUri("RM.soap");
-                        foreach (string url in urls)
-                        {
-                            transactionManager.Register(url + "$" + GlobalState.Name);
-                        }
-
-                        transactionManager.Abort(tid);
-                    }
-                    catch (ArgumentException)
-                    {
-                        transactionManager = null;
-                        Console.WriteLine("Waiting 1 second for Transaction Manager \"{0}\"", parser["tm"]);
-                        System.Threading.Thread.Sleep(1000);
-                    }
-                }
-            }
-            Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", GlobalState.Name, parser["tm"]);
-
-            while (GlobalState.Mode == GlobalState.RunMode.Loop)
-                System.Threading.Thread.Sleep(2000);
-
-            int loopCount = 0;
-            while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
-            {
-                System.Threading.Thread.Sleep(1000);
-                loopCount++;
-                Console.WriteLine("{0}: Waiting for transaction complete ({1} second(s))", GlobalState.Name, loopCount);
-            }
-
-            Console.WriteLine("{0}: Exitting", GlobalState.Name);
-        }
+        
 
         public void Commit(TP.Transaction context)
         {
@@ -190,7 +64,10 @@ namespace MyRM
         public bool Add(Transaction context, RID rId, int count, int price)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             // read the resource
             Resource data = null;
@@ -217,7 +94,10 @@ namespace MyRM
         public bool Delete(Transaction context, RID rId)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             // remove the resource
             bool removed = this.dataStore.Write(context, rId, null);
@@ -266,7 +146,10 @@ namespace MyRM
         public bool Delete(Transaction context, RID rId, int count)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             // read in the resource
             Resource data = null;
@@ -295,7 +178,10 @@ namespace MyRM
         public bool Reserve(Transaction context, Customer customer, RID resource)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             // get the resource info
             Resource item = null;
@@ -346,7 +232,10 @@ namespace MyRM
         public void UnReserve(Transaction context, Customer customer)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
@@ -396,7 +285,10 @@ namespace MyRM
         public int Query(Transaction context, RID rId)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
@@ -415,7 +307,10 @@ namespace MyRM
         public int QueryPrice(Transaction context, RID rId)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
@@ -433,7 +328,10 @@ namespace MyRM
             StringBuilder buffer = new StringBuilder(512);
 
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
@@ -461,7 +359,10 @@ namespace MyRM
             int bill = 0;
 
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             // read the reservation data
             Reservation data = null;
@@ -492,7 +393,10 @@ namespace MyRM
         public Customer[] ListCustomers(Transaction context)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             List<Customer> customerList = null;
             bool result = this.dataStore.Read(context, out customerList);
@@ -507,7 +411,10 @@ namespace MyRM
         public string[] ListResources(Transaction context, RID.Type type)
         {
             // enlist with TM
-            transactionManager.Enlist(context, this.name);
+            if (!transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
 
             List<Resource> resourceList = null;
             bool result = this.dataStore.Read(context, type, out resourceList);
@@ -577,5 +484,161 @@ namespace MyRM
         {
             // TODO deadlock detector, retry timeout
         }
+
+        #region Exception Classes
+
+        [Serializable]
+        public class AbortTransationException : System.Exception
+        {
+            public AbortTransationException()
+                : base("Unable resolve logical address.")
+            {
+            }
+
+            public AbortTransationException(string message)
+                : base(message)
+            {
+            }
+
+            public AbortTransationException(string message, System.Exception e)
+                : base(message, e)
+            {
+            }
+        }
+
+        #endregion
+
+        #region Process Startup
+
+        internal class GlobalState
+        {
+            public enum RunMode
+            {
+                Loop,
+                Wait,
+                Kill
+            }
+
+            public static RunMode Mode = RunMode.Loop;
+            public const string DefaultName = "MyRM";
+
+            private const int MaxNameLength = 21;
+            private static string name = null;
+
+            public static string Name
+            {
+                get
+                {
+                    if (name == null)
+                    {
+                        name = DefaultName;
+                    }
+
+                    return name;
+                }
+                set
+                {
+                    if (name == null)
+                    {
+                        string temp = value.Trim();
+                        if (temp.IndexOfAny(System.IO.Path.GetInvalidPathChars()) < 0 && temp.Length <= MaxNameLength)
+                        {
+                            name = temp;
+                        }
+                        else
+                        {
+                            throw new ArgumentException(String.Format("\"{0}\" is not a valid MyRM Name", temp), "Name");
+                        }
+                    }
+                    else
+                    {
+                        throw new ArgumentException(String.Format("\"{0}\" is not valid at this time, MyRM Name is already set to \"{1}\"", value, name), "Name");
+                    }
+                }
+            }
+        }
+
+        class RMParser : CommandLineParser
+        {
+            public RMParser()
+            {
+                Add("p", "Port", "The port this Resource Manager listens on", "8081");
+                Add("n", "Name", "The name of this Resource Manager", GlobalState.DefaultName);
+                Add("tm", "TM", "The URL of the Transaction Manager.  Specify \"NONE\" to run this RM in stand alone mode", "http://localhost:8089/TM.soap");
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            RMParser parser = new RMParser();
+
+            if (!parser.Parse(args))
+            {
+                return;
+            }
+
+            GlobalState.Name = parser["n"].ToLower();
+            string port_num = parser["p"];
+
+            System.Collections.Specialized.ListDictionary channelProperties = new System.Collections.Specialized.ListDictionary();
+
+            channelProperties.Add("port", port_num);
+            channelProperties.Add("name", GlobalState.Name);
+
+            HttpChannel channel = new HttpChannel(channelProperties, new SoapClientFormatterSinkProvider(), new SoapServerFormatterSinkProvider());
+
+            System.Console.WriteLine(string.Format("Starting resource manager for {0} on port {1}", GlobalState.Name, port_num));
+            System.Runtime.Remoting.Channels.ChannelServices.RegisterChannel(channel, false);
+
+            System.Runtime.Remoting.RemotingConfiguration.RegisterWellKnownServiceType
+            (Type.GetType("MyRM.MyRM")									// Assembly name
+                  , "RM.soap"												// URI
+                  , System.Runtime.Remoting.WellKnownObjectMode.Singleton	// Instancing mode
+            );
+
+
+            if (String.Compare(parser["tm"], "none", true) != 0)
+            {
+                while (transactionManager == null)
+                {
+                    try
+                    {
+                        transactionManager = (TP.TM)System.Activator.GetObject(typeof(TP.TM), parser["tm"]);
+
+                        Transaction tid = transactionManager.Start();
+                        string[] urls = channel.GetUrlsForUri("RM.soap");
+                        foreach (string url in urls)
+                        {
+                            transactionManager.Register(url + "$" + GlobalState.Name);
+                        }
+
+                        transactionManager.Abort(tid);
+                    }
+                    catch (ArgumentException e)
+                    {
+                        transactionManager = null;
+                        Console.WriteLine(e.ToString());
+                        Console.WriteLine("Waiting 1 second for Transaction Manager \"{0}\"", parser["tm"]);
+                        System.Threading.Thread.Sleep(1000);
+                    }
+                }
+            }
+            Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", GlobalState.Name, parser["tm"]);
+
+            while (GlobalState.Mode == GlobalState.RunMode.Loop)
+                System.Threading.Thread.Sleep(2000);
+
+            int loopCount = 0;
+            while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
+            {
+                System.Threading.Thread.Sleep(1000);
+                loopCount++;
+                Console.WriteLine("{0}: Waiting for transaction complete ({1} second(s))", GlobalState.Name, loopCount);
+            }
+
+            Console.WriteLine("{0}: Exitting", GlobalState.Name);
+        }
+
+        #endregion
     }
 }
