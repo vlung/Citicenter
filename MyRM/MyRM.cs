@@ -39,7 +39,23 @@ namespace MyRM
             return this.name;
         }
 
-        
+        public enum PrepareToCommitFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
+        public PrepareToCommitFailure prepareToCommitFailure = PrepareToCommitFailure.NoFailure;
+
+        public bool RequestToPrepare(TP.Transaction context)
+        {
+            if (prepareToCommitFailure == PrepareToCommitFailure.PrepareReturnsNo)
+            {
+                return false;
+            }
+            else if (prepareToCommitFailure == PrepareToCommitFailure.PrepareTimesOut)
+            {
+                while (true)
+                {
+                }
+            }
+            return true;
+        }
 
         public void Commit(TP.Transaction context)
         {

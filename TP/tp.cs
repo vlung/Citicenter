@@ -274,6 +274,13 @@ namespace TP
         /// <param name="context"></param>
         ///void Enlist(Transaction context);
 
+        /// <summary>
+        /// This function prepares the specified transaction for two phase commit
+        /// </summary>s
+        /// <param name="context">Identifier of the transaction</param>
+        /// <returns>True if the preparation is successful (ie Prepared).</returns>
+        bool RequestToPrepare(Transaction context);
+
         /// <param name="context"></param>
         void Commit(Transaction context);
 

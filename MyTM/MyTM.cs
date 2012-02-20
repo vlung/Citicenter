@@ -6,6 +6,8 @@ using System.Collections;
 using System.Runtime.Remoting.Channels.Http;
 using System.Runtime.Remoting;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MyTM
 {
@@ -18,6 +20,7 @@ namespace MyTM
 
         private HashSet<RM> resourceManagers;
         private Dictionary<Transaction, List<string>> activeTransactions;
+        private static int RM_TIMEOUT = 5000;
 
         #endregion
 
@@ -54,28 +57,106 @@ namespace MyTM
         /// <param name="context"></param>
         public void Commit(TP.Transaction context)
         {
-            List<string> rmList = GetRMListForTransaction(context);
-            if (null == rmList)
+            // Get the list of names of the resource manager involved in this transaction
+            List<string> rmNameList = GetRMListForTransaction(context);
+            if (null == rmNameList)
             {
                 System.Console.WriteLine(string.Format("Transaction {0} unknown", context.Id));
                 throw new AbortTransationException();
             }
 
-            // send commit to all managers involved in the transaction
+            // Get the list of resource managers involved in this transaction
+            List<RM> rmList = new List<RM>();
             lock (this.resourceManagers)
             {
                 foreach (RM mgr in this.resourceManagers)
                 {
-                    if (!rmList.Contains(mgr.GetName()))
+                    if (rmNameList.Contains(mgr.GetName()))
                     {
-                        continue;
+                        rmList.Add(mgr);
                     }
+                }
 
-                    mgr.Commit(context);
+                // Request to prepare for all resource managers involved in this transaction
+                bool allPrepared = true;
+                Task<bool>[] prepareTasks = new Task<bool>[rmList.Count];
+                for (int i = 0; i < rmList.Count; ++i)
+                {
+                    prepareTasks[i] = Task.Factory.StartNew<bool>((obj) =>
+                        {
+                            return ((RM)obj).RequestToPrepare(context);
+                        },
+                        rmList[i]);
+                }
+
+                // Wait for all resource managers to respond to the request to prepare
+                if (!Task.WaitAll(prepareTasks, RM_TIMEOUT))
+                {
+                    // If any of the resource managers timed out, cancel active tasks and abort the transaction
+                    System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for the RequestToPrepare response. Aborting transaction...", context.Id));
+                    allPrepared = false;
+                }
+                else
+                {
+                    // If all resource managers are ready responded to the request to prepare, check if
+                    // any of them responded NO to the request.
+                    foreach (Task<bool> t in prepareTasks)
+                    {
+                        if (t.Result == false) // Since the task did not time out, getting the result is non-blocking.
+                        {
+                            allPrepared = false;
+                            System.Console.WriteLine(string.Format("Transaction {0} received No for RequestToPrepare. Aborting transaction...", context.Id));
+                            break;
+                        }
+                    }
+                }
+
+                // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
+                if (allPrepared)
+                {
+                    System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
+                    Task[] commitTasks = new Task[rmList.Count];
+                    for (int i = 0; i < rmList.Count; ++i)
+                    {
+                        commitTasks[i] = Task.Factory.StartNew((obj) =>
+                        {
+                            ((RM)obj).Commit(context);
+                        },
+                        rmList[i]);
+                    }
+                    // TODO: How should we handle commit timeout?
+                    if (Task.WaitAll(commitTasks, RM_TIMEOUT))
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
+                    }
+                    else
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} commited with some timeouts", context.Id));
+                    }
+                }
+                else
+                {
+                    System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
+                    Task[] abortTasks = new Task[rmList.Count];
+                    for (int i = 0; i < rmList.Count; ++i)
+                    {
+                        abortTasks[i] = Task.Factory.StartNew((obj) =>
+                        {
+                            ((RM)obj).Abort(context);
+                        },
+                        rmList[i]);
+                    }
+                    // TODO: How should we handle commit timeout?
+                    if (Task.WaitAll(abortTasks, RM_TIMEOUT))
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
+                    }
+                    else
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
+                    }
                 }
             }
-
-            System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
         }
 
         /// <summary>
@@ -83,29 +164,46 @@ namespace MyTM
         /// </summary>
         /// <param name="context"></param>
         public void Abort(TP.Transaction context)
-        {
-            List<string> rmList = GetRMListForTransaction(context);
-            if (null == rmList)
+        {  
+            // Get the list of names of the resource manager involved in this transaction
+            List<string> rmNameList = GetRMListForTransaction(context);
+            if (null == rmNameList)
             {
                 System.Console.WriteLine(string.Format("Transaction {0} unknown", context.Id));
-                return;
             }
 
-            // send abort to all managers involved in the transaction
+            // Get the list of resource managers involved in this transaction
+            List<RM> rmList = new List<RM>();
             lock (this.resourceManagers)
             {
                 foreach (RM mgr in this.resourceManagers)
                 {
-                    if (!rmList.Contains(mgr.GetName()))
+                    if (rmNameList.Contains(mgr.GetName()))
                     {
-                        continue;
+                        rmList.Add(mgr);
                     }
+                }
 
-                    mgr.Abort(context);
+                System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
+                Task[] abortTasks = new Task[rmList.Count];
+                for (int i = 0; i < rmList.Count; ++i)
+                {
+                    abortTasks[i] = Task.Factory.StartNew((obj) =>
+                    {
+                        ((RM)obj).Abort(context);
+                    },
+                    rmList[i]);
+                }
+                // TODO: How should we handle commit timeout?
+                if (Task.WaitAll(abortTasks, RM_TIMEOUT))
+                {
+                    System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
+                }
+                else
+                {
+                    System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
                 }
             }
-
-            System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
         }
 
         /// <summary>

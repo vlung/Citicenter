@@ -50,16 +50,11 @@ namespace MyWC
                     Flights.Reserve(tid, c, RID.forFlight(flight));
                 }
 
-                Cars.Commit(tid);
-                Flights.Commit(tid);
-                Rooms.Commit(tid);
+                Commit(tid);
             }
             catch (System.Exception e)
             {
-                Cars.Abort(tid);
-                Flights.Abort(tid);
-                Rooms.Abort(tid);
-
+                Abort(tid);
                 throw e;
             }
 
@@ -76,15 +71,11 @@ namespace MyWC
                 Cars.UnReserve(xid, customer);
                 Rooms.UnReserve(xid, customer);
 
-                Cars.Commit(xid);
-                Flights.Commit(xid);
-                Rooms.Commit(xid);
+                Commit(xid);
             }
             catch (Exception e)
             {
-                Cars.Abort(xid);
-                Flights.Abort(xid);
-                Rooms.Abort(xid);
+                Abort(xid);
                 throw new Exception("caught an exception", e);
             }
             return true;
