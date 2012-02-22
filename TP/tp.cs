@@ -269,14 +269,16 @@ namespace TP
          */
         string GetName();
         void SetName(string name);
-
-        /// The enlist method is not needed as a public method
+        
+        /// <summary>
+        /// This function enlist the RM in the transaction
+        /// </summary>
         /// <param name="context"></param>
-        ///void Enlist(Transaction context);
+        void Enlist(Transaction context);
 
         /// <summary>
         /// This function prepares the specified transaction for two phase commit
-        /// </summary>s
+        /// </summary>
         /// <param name="context">Identifier of the transaction</param>
         /// <returns>True if the preparation is successful (ie Prepared).</returns>
         bool RequestToPrepare(Transaction context);

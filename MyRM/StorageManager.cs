@@ -27,7 +27,7 @@
         // storage members
         private FileStream dataFile;
         private Dictionary<Transaction, StorageContext> contextMap;
-        public StoragePageManager pageManager;
+        private StoragePageManager pageManager;
 
         // lock manager
         private MyLM lockManager;
@@ -47,6 +47,14 @@
             return obj;
         }
 
+        public bool HasActiveTransactions()
+        {
+            lock (this.contextMap)
+            {
+                return (0 != this.contextMap.Count);
+            }
+        }
+
         #region IDisposible
 
         ~StorageManager()
@@ -61,6 +69,8 @@
         }
 
         #endregion
+
+        #region Data Access Methods
 
         public void Abort(Transaction context)
         {
@@ -215,6 +225,8 @@
             return Write<Customer, Reservation>(
                 context, storageContext, storageContext.ReservationIndex, rId, data);
         }
+
+        #endregion
 
         #endregion
 

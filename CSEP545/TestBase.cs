@@ -39,8 +39,8 @@ namespace CSEP545
                 Console.WriteLine(r);
             wc.Commit(t);
             
-            rmcars.SelfDestruct(2);
-            rmrooms.SelfDestruct(2);
+            rmcars.Shutdown();
+            rmrooms.Shutdown();
             
             Thread.Sleep(1000);
 

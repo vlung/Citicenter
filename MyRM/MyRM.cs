@@ -19,14 +19,14 @@ namespace MyRM
         private string name = null;
         private StorageManager dataStore = null;
 
-        #endregion
+        private TP.TM transactionManager = null;
 
-        static TP.TM transactionManager = null;
+        #endregion
 
         public MyRM()
         {
             this.name = GlobalState.Name;
-            this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", GlobalState.Name));
+            this.dataStore = null;
         }
 
         public void SetName(string _name)
@@ -37,6 +37,25 @@ namespace MyRM
         public string GetName()
         {
             return this.name;
+        }
+
+        /// <summary>
+        /// Called to enlist with transaction manager if we are not in shutdown mode
+        /// </summary>
+        /// <param name="context"></param>
+        public void Enlist(Transaction context)
+        {
+            if (GlobalState.Mode != GlobalState.RunMode.Loop)
+            {
+                // we are not intialized yet so just abort
+                throw new AbortTransationException();
+            }
+
+            // enlist with TM
+            if (!this.transactionManager.Enlist(context, this.GetName()))
+            {
+                throw new AbortTransationException();
+            }
         }
 
         public enum PrepareToCommitFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
@@ -80,10 +99,7 @@ namespace MyRM
         public bool Add(Transaction context, RID rId, int count, int price)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             // read the resource
             Resource data = null;
@@ -110,10 +126,7 @@ namespace MyRM
         public bool Delete(Transaction context, RID rId)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             // remove the resource
             bool removed = this.dataStore.Write(context, rId, null);
@@ -162,10 +175,7 @@ namespace MyRM
         public bool Delete(Transaction context, RID rId, int count)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             // read in the resource
             Resource data = null;
@@ -194,10 +204,7 @@ namespace MyRM
         public bool Reserve(Transaction context, Customer customer, RID resource)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             // get the resource info
             Resource item = null;
@@ -248,10 +255,7 @@ namespace MyRM
         public void UnReserve(Transaction context, Customer customer)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
@@ -293,18 +297,14 @@ namespace MyRM
             }
         }
 
-               
         /// <summary>
-        /*   Need to add code here
-            returns the amount available for the specified item type */
+        /// Need to add code here
+        /// returns the amount available for the specified item type
         /// </summary>
         public int Query(Transaction context, RID rId)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
@@ -316,17 +316,17 @@ namespace MyRM
             return data.getCount();
         }
 
-        // <summary>
-        /* Need to add code here
-         returns the price for the specified item type */
-        // </summary>
+        /// <summary>
+        /// Need to add code here
+        /// returns the price for the specified item type
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="rId"></param>
+        /// <returns></returns>
         public int QueryPrice(Transaction context, RID rId)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             Resource data = null;
             bool result = this.dataStore.Read(context, rId, out data);
@@ -338,16 +338,12 @@ namespace MyRM
             return data.getPrice();
         }
 
-
         public string QueryReserved(Transaction context, Customer customer)
         {
             StringBuilder buffer = new StringBuilder(512);
 
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             Reservation data = null;
             bool result = this.dataStore.Read(context, customer, out data);
@@ -369,16 +365,12 @@ namespace MyRM
             return buffer.ToString();
         }
 
-
         public int QueryReservedPrice(Transaction context, Customer customer)
         {
             int bill = 0;
 
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             // read the reservation data
             Reservation data = null;
@@ -409,10 +401,7 @@ namespace MyRM
         public Customer[] ListCustomers(Transaction context)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             List<Customer> customerList = null;
             bool result = this.dataStore.Read(context, out customerList);
@@ -427,10 +416,7 @@ namespace MyRM
         public string[] ListResources(Transaction context, RID.Type type)
         {
             // enlist with TM
-            if (!transactionManager.Enlist(context, this.GetName()))
-            {
-                throw new AbortTransationException();
-            }
+            this.Enlist(context);
 
             List<Resource> resourceList = null;
             bool result = this.dataStore.Read(context, type, out resourceList);
@@ -446,16 +432,21 @@ namespace MyRM
         }
 
         /// <summary>
-        /*  NEED TO ADD CODE For STEP 2
-              Calling shutdown causes RM to exit gracefully.
-              This means, it waits for all the existing transactions 
-              to end and enlist requests for new transactions are refused. 
-              If any of the existing transactions blocks forever, 
-              a retry/timeout mechanism is used to exit.
-              No recovery is done on startup */
+        /// NEED TO ADD CODE For STEP 2
+        /// Calling shutdown causes RM to exit gracefully.
+        /// This means, it waits for all the existing transactions 
+        /// to end and enlist requests for new transactions are refused. 
+        /// If any of the existing transactions blocks forever, 
+        /// a retry/timeout mechanism is used to exit.
+        /// No recovery is done on startup
         /// </summary>
         public void Shutdown()
         {
+            // indicate that we are in shutdown
+            lock (this.name)
+            {
+                GlobalState.Mode = GlobalState.RunMode.Wait;
+            }
         }
 
         /// <summary>
@@ -472,23 +463,67 @@ namespace MyRM
         {
         }
 
-
-        /**
-         * @todo setup {@link #selfDestruct(int)} here
-         */
-
-        protected void Init(String[] args)
+        /// <summary>
+        /// Initializes the RM.
+        /// </summary>
+        public void Init(string name, string url, string tmUrl)
         {
-            // TODO set self destruct counter
+            // set the name of the RM
+            this.SetName(name);
 
+            // init storage
+            this.InitStorage();
+
+            // recover the lost state
+            this.Recovery();
+
+            // startup 
+            this.StartUp(url, tmUrl);
+
+            // set the state
+            GlobalState.Mode = GlobalState.RunMode.Loop;
+        }
+
+        /// <summary>
+        /// Runs the execution loop
+        /// </summary>
+        public void Run()
+        {
+            // execution loop
+            while (GlobalState.Mode == GlobalState.RunMode.Loop)
+            {
+                System.Threading.Thread.Sleep(2000);
+            }
+
+            // wait for active transactions loop
+            int loopCount = 0;
+            while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
+            {
+                if (!this.dataStore.HasActiveTransactions())
+                {
+                    break;
+                }
+
+                Console.WriteLine("{0}: Waiting for transaction complete ({1} second(s))", GlobalState.Name, loopCount);
+                System.Threading.Thread.Sleep(1000);
+                loopCount++;
+            }
+
+            // close the stream files
+            this.dataStore.Dispose();
         }
 
 
         protected void InitStorage()
         {
-            // TODO create database files, transaction logs
+            // create the data store
+            this.dataStore = StorageManager.CreateObject(string.Format("{0}.tpdb", this.name));
+            if (null == dataStore)
+            {
+                throw new InvalidOperationException();
+            }
+            Console.WriteLine("{0}: Data store initialized", GlobalState.Name);
         }
-
 
         protected void Recovery()
         {
@@ -496,9 +531,35 @@ namespace MyRM
         }
 
 
-        protected void StartUp()
+        protected void StartUp(string url, string tmUrl)
         {
-            // TODO deadlock detector, retry timeout
+            if (string.Compare(tmUrl, "none", true) == 0)
+            {
+                return;
+            }
+
+            // Register with the TM
+            while (transactionManager == null)
+            {
+                try
+                {
+                    this.transactionManager = (TP.TM)System.Activator.GetObject(typeof(TP.TM), tmUrl);
+
+                    Transaction tid = this.transactionManager.Start();
+                    this.transactionManager.Register(url + "$" + this.GetName());
+                    this.transactionManager.Abort(tid);
+                }
+                catch (ArgumentException e)
+                {
+                    this.transactionManager = null;
+                    Console.WriteLine(e.ToString());
+                    Console.WriteLine("Waiting 1 second for Transaction Manager \"{0}\"", tmUrl);
+                    System.Threading.Thread.Sleep(1000);
+                }
+            }
+            Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", this.GetName(), tmUrl);
+
+            // TODO: figure out what to do about the prepared transactions
         }
 
         #region Exception Classes
@@ -535,7 +596,7 @@ namespace MyRM
                 Kill
             }
 
-            public static RunMode Mode = RunMode.Loop;
+            public static RunMode Mode = RunMode.Kill;
             public const string DefaultName = "MyRM";
 
             private const int MaxNameLength = 21;
@@ -574,7 +635,8 @@ namespace MyRM
             }
         }
 
-        class RMParser : CommandLineParser
+        [Serializable]
+        protected class RMParser : CommandLineParser
         {
             public RMParser()
             {
@@ -587,7 +649,6 @@ namespace MyRM
         static void Main(string[] args)
         {
             RMParser parser = new RMParser();
-
             if (!parser.Parse(args))
             {
                 return;
@@ -596,61 +657,39 @@ namespace MyRM
             GlobalState.Name = parser["n"].ToLower();
             string port_num = parser["p"];
 
-            System.Collections.Specialized.ListDictionary channelProperties = new System.Collections.Specialized.ListDictionary();
+            System.Console.WriteLine(string.Format("Starting resource manager for {0} on port {1}", GlobalState.Name, port_num));
 
+            System.Collections.Specialized.ListDictionary channelProperties = new System.Collections.Specialized.ListDictionary();
             channelProperties.Add("port", port_num);
             channelProperties.Add("name", GlobalState.Name);
-
+            
             HttpChannel channel = new HttpChannel(channelProperties, new SoapClientFormatterSinkProvider(), new SoapServerFormatterSinkProvider());
-
-            System.Console.WriteLine(string.Format("Starting resource manager for {0} on port {1}", GlobalState.Name, port_num));
             System.Runtime.Remoting.Channels.ChannelServices.RegisterChannel(channel, false);
-
             System.Runtime.Remoting.RemotingConfiguration.RegisterWellKnownServiceType
-            (Type.GetType("MyRM.MyRM")									// Assembly name
+            (Type.GetType("MyRM.MyRM")									    // Assembly name
                   , "RM.soap"												// URI
                   , System.Runtime.Remoting.WellKnownObjectMode.Singleton	// Instancing mode
             );
 
-
-            if (String.Compare(parser["tm"], "none", true) != 0)
+            // activate the object
+            string[] urls = channel.GetUrlsForUri("RM.soap");
+            if (1 != urls.Length)
             {
-                while (transactionManager == null)
-                {
-                    try
-                    {
-                        transactionManager = (TP.TM)System.Activator.GetObject(typeof(TP.TM), parser["tm"]);
-
-                        Transaction tid = transactionManager.Start();
-                        string[] urls = channel.GetUrlsForUri("RM.soap");
-                        foreach (string url in urls)
-                        {
-                            transactionManager.Register(url + "$" + GlobalState.Name);
-                        }
-
-                        transactionManager.Abort(tid);
-                    }
-                    catch (ArgumentException e)
-                    {
-                        transactionManager = null;
-                        Console.WriteLine(e.ToString());
-                        Console.WriteLine("Waiting 1 second for Transaction Manager \"{0}\"", parser["tm"]);
-                        System.Threading.Thread.Sleep(1000);
-                    }
-                }
+                throw new InvalidOperationException();
             }
-            Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", GlobalState.Name, parser["tm"]);
 
-            while (GlobalState.Mode == GlobalState.RunMode.Loop)
-                System.Threading.Thread.Sleep(2000);
-
-            int loopCount = 0;
-            while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
+            MyRM resourceManager = (MyRM)System.Activator.GetObject(typeof(TP.RM), urls[0]);
+            if (null == resourceManager)
             {
-                System.Threading.Thread.Sleep(1000);
-                loopCount++;
-                Console.WriteLine("{0}: Waiting for transaction complete ({1} second(s))", GlobalState.Name, loopCount);
+                throw new InvalidProgramException();
             }
+
+            // initialize and start RM
+            Console.WriteLine("{0}: Initializing", GlobalState.Name);
+            resourceManager.Init(parser["n"], urls[0], parser["tm"]);
+
+            Console.WriteLine("{0}: Running", GlobalState.Name);
+            resourceManager.Run();
 
             Console.WriteLine("{0}: Exitting", GlobalState.Name);
         }
