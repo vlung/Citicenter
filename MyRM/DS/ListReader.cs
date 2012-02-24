@@ -25,7 +25,7 @@ namespace MyRM.DS
             this.pageList = new List<int>();
         }
 
-        public void ReadList(FileStream stream, int pageIdx, out List<T> list, out List<int> pages)
+        public void ReadList(FileStreamWrapper stream, int pageIdx, out List<T> list, out List<int> pages)
         {
             // read pages one by one
             while (ListHdr.EOLPageIndex != pageIdx)

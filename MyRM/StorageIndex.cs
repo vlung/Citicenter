@@ -60,7 +60,7 @@
             this.indexMap[resourceId] = address;
         }
 
-        public int WriteIndexData(FileStream stream, StoragePageManager manager, out List<int> freedPages)
+        public int WriteIndexData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
 
@@ -90,7 +90,7 @@
             return this.indexStoragePages[0];
         }
 
-        public int ReadIndexData(FileStream stream, int pageIdx)
+        public int ReadIndexData(FileStreamWrapper stream, int pageIdx)
         {
             List<IndexItem<T>> itemList = null;
             List<int> pageIdxList = null;

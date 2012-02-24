@@ -63,7 +63,7 @@ namespace MyRM
             this.pageTable[logicalPage].IsDirty = true;
         }        
 
-        public int WritePageTableData(FileStream stream, StoragePageManager manager, out List<int> freedPages)
+        public int WritePageTableData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
 
@@ -85,7 +85,7 @@ namespace MyRM
             return this.pageTableStoragePages[0];
         }
 
-        public int ReadPageTableData(FileStream stream, int pageIdx)
+        public int ReadPageTableData(FileStreamWrapper stream, int pageIdx)
         {
             List<PageTableItem> itemList = null;
             List<int> pageIdxList = null;

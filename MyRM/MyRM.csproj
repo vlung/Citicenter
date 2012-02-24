@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DS\DBHdr.cs" />
+    <Compile Include="DS\FileStreamWrapper.cs" />
     <Compile Include="DS\ListReader.cs" />
     <Compile Include="DS\ListWriter.cs" />
     <Compile Include="DS\ListHdr.cs" />

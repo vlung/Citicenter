@@ -26,7 +26,7 @@ using System.Text;
             this.pageIdxList = new List<int>();
         }
 
-        public void WriteList(FileStream stream, StoragePageManager freeSpaceMgr, List<T> list, out List<int> pages)
+        public void WriteList(FileStreamWrapper stream, StoragePageManager freeSpaceMgr, List<T> list, out List<int> pages)
         {
             // create the pages
             this.CreateNewPage(list.Count);
@@ -78,7 +78,7 @@ using System.Text;
             this.pageList.Push(page);
         }
 
-        private int WriteTopPage(FileStream stream, StoragePageManager mgr, int lastPageAddress)
+        private int WriteTopPage(FileStreamWrapper stream, StoragePageManager mgr, int lastPageAddress)
         {
             // update the header
             ListHdr header = this.pageHeaderList.Pop();

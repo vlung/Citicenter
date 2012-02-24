@@ -28,7 +28,7 @@
             this.writingSelf = false;
         }
 
-        public int GetFreePage(FileStream stream)
+        public int GetFreePage(FileStreamWrapper stream)
         {
             if (0 == this.freePages.Count
                 || this.writingSelf)
@@ -58,7 +58,7 @@
             }
         }
 
-        public int WritePageManagerData(FileStream stream)
+        public int WritePageManagerData(FileStreamWrapper stream)
         {
             this.writingSelf = true;
 
@@ -77,7 +77,7 @@
             return this.managerStoragePages[0];
         }
 
-        public int ReadPageManagerData(FileStream stream, int pageIdx)
+        public int ReadPageManagerData(FileStreamWrapper stream, int pageIdx)
         {
             List<int> itemList = null;
             List<int> pageIdxList = null;

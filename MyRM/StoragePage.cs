@@ -5,6 +5,7 @@
     using System.IO;
     using System.Text;
     using System.Runtime.Serialization.Formatters.Binary;
+    using DS;
 
     public class StoragePage
     {
@@ -104,7 +105,7 @@
             return data;
         }
 
-        public int WritePageData(FileStream stream, int pageIdx)
+        public int WritePageData(FileStreamWrapper stream, int pageIdx)
         {
             // get the page data
             byte[] dataBuffer = new byte[PageSize];
@@ -123,7 +124,7 @@
             return pageIdx;
         }
 
-        public int ReadPageData(FileStream stream, int pageIdx)
+        public int ReadPageData(FileStreamWrapper stream, int pageIdx)
         {
             byte[] dataBuffer = new byte[PageSize];
 

@@ -432,7 +432,6 @@ namespace MyRM
         }
 
         /// <summary>
-        /// NEED TO ADD CODE For STEP 2
         /// Calling shutdown causes RM to exit gracefully.
         /// This means, it waits for all the existing transactions 
         /// to end and enlist requests for new transactions are refused. 
@@ -450,17 +449,21 @@ namespace MyRM
         }
 
         /// <summary>
-        /*    Exit after the specified number of disk writes.
-              Support for this method requires a wrapper around _write_ system
-              call that decrements the counter set by this method.
-
-              This counter should be set by default to 0, which implies that the wrapper
-              will do nothing.  If it is non-zero, the wrapper should decrement
-              the counter, see if it becomes zero, and if so, call exit(), otherwise
-              continue to write. */
+        /// Exit after the specified number of disk writes.
+        /// Support for this method requires a wrapper around _write_ system
+        /// call that decrements the counter set by this method.
+        ///
+        /// This counter should be set by default to 0, which implies that the wrapper
+        /// will do nothing.  If it is non-zero, the wrapper should decrement
+        /// the counter, see if it becomes zero, and if so, call exit(), otherwise
+        /// continue to write.
         /// </summary>
         public void SelfDestruct(int diskWritesToWait)
         {
+            lock (this.dataStore)
+            {
+                this.dataStore.SetMaxDiskWriteCount(diskWritesToWait);
+            }
         }
 
         /// <summary>

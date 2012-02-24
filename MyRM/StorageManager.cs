@@ -25,7 +25,7 @@
         private static object ManagerLock = new object();
 
         // storage members
-        private FileStream dataFile;
+        private FileStreamWrapper dataFile;
         private Dictionary<Transaction, StorageContext> contextMap;
         private StoragePageManager pageManager;
 
@@ -45,6 +45,11 @@
             obj.Init(filePath);
 
             return obj;
+        }
+
+        public void SetMaxDiskWriteCount(int count)
+        {
+            this.dataFile.MaxDiskWrites = count;
         }
 
         public bool HasActiveTransactions()
@@ -550,7 +555,7 @@
         private void Init(string filePath)
         {
             // open the file
-            this.dataFile = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+            this.dataFile = FileStreamWrapper.CreateObject(filePath);
 
             DBHdr dbRoot = this.ReadDBRoot();
             if (null == dbRoot)

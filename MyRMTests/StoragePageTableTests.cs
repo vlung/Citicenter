@@ -7,7 +7,9 @@
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     using System.IO;
+    using MyRM.DS;
     using MyRM;
+    
 
     /// <summary>
     /// Summary description for StoragePageTableTests
@@ -83,7 +85,7 @@
                 pageTable.SetLogicalPage(idx + physicalPageDistance);
             }
 
-            using (FileStream dataFileStream = File.Open(dataFile, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            using (FileStreamWrapper dataFileStream = FileStreamWrapper.CreateObject(dataFile))
             {
                 int root = pageTable.WritePageTableData(dataFileStream, spaceMgr, out freedPages);
                 dataFileStream.Seek(0, SeekOrigin.Begin);
