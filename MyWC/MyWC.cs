@@ -52,7 +52,7 @@ namespace MyWC
 
                 Commit(tid);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Abort(tid);
                 throw e;
@@ -76,7 +76,7 @@ namespace MyWC
             catch (Exception e)
             {
                 Abort(xid);
-                throw new Exception("caught an exception", e);
+                throw e;
             }
             return true;
         }
@@ -317,11 +317,11 @@ namespace MyWC
                     Cars = TransactionManager.GetResourceMananger("car");
             }
             if (Flights != null)
-                Console.WriteLine("Get RM with the name:" + Flights.GetName());
+                Console.WriteLine("Got RM with the name:" + Flights.GetName());
             if (Rooms != null)
-                Console.WriteLine("Get RM with the name:" + Rooms.GetName());
+                Console.WriteLine("Got RM with the name:" + Rooms.GetName());
             if (Cars != null)
-                Console.WriteLine("Get RM with the name:" + Cars.GetName());
+                Console.WriteLine("Got RM with the name:" + Cars.GetName());
 
             HttpChannel httpChannel = new HttpChannel(Int32.Parse(parser["p"]));
             System.Runtime.Remoting.Channels.ChannelServices.RegisterChannel(httpChannel, false);

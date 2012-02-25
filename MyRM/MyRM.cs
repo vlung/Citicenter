@@ -70,7 +70,6 @@ namespace MyRM
                 catch (UnknownRMException)
                 {
                     // the RM does not know about us so register again
-                    Console.Write("Need to register");
                     this.transactionManager.Register(this.tmRegistrationString);
                     retryCount--;
                 }
