@@ -532,7 +532,7 @@
 
                 // write the page
                 fileAddress = page.WritePageData(
-                    this.dataFile, this.pageManager.GetFreePage(this.dataFile));
+                    this.dataFile, this.pageManager.GetFreePage());
 
                 // store the index of the page we just wrote to
                 storageContext.AllocatedPageList.Add(fileAddress);

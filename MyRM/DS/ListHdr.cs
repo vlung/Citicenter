@@ -21,6 +21,9 @@ namespace MyRM.DS
         private int pc;
         private int tc;
 
+        [NonSerialized]
+        private int pageWriteIndex;
+
         #endregion
 
         public int NextPageIndex
@@ -56,6 +59,19 @@ namespace MyRM.DS
             set
             {
                 tc = value;
+            }
+        }
+       
+        public int PageWriteIndex
+        {
+            get
+            {
+                return this.pageWriteIndex;
+            }
+
+            set
+            {
+                this.pageWriteIndex = value;
             }
         }
     }

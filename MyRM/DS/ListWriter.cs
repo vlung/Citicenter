@@ -29,7 +29,7 @@ using System.Text;
         public void WriteList(FileStreamWrapper stream, StoragePageManager freeSpaceMgr, List<T> list, out List<int> pages)
         {
             // create the pages
-            this.CreateNewPage(list.Count);
+            this.CreateNewPage(list.Count, freeSpaceMgr);
             for(int idx = 0; idx < list.Count; idx++)
             {
                 var item = list[idx];
@@ -41,7 +41,7 @@ using System.Text;
                 }
                 catch (StoragePage.InsuffcientSpaceException e)
                 {
-                    this.CreateNewPage(list.Count);
+                    this.CreateNewPage(list.Count, freeSpaceMgr);
                     idx--;
                 }
             }
@@ -50,7 +50,7 @@ using System.Text;
             int lastPageIndex = ListHdr.EOLPageIndex;
             while (0 < this.pageList.Count)
             {
-                lastPageIndex = this.WriteTopPage(stream, freeSpaceMgr, lastPageIndex);
+                lastPageIndex = this.WriteTopPage(stream, lastPageIndex);
             }
 
             // set the output parameter
@@ -61,7 +61,7 @@ using System.Text;
 
         #region Private Methods
 
-        private void CreateNewPage(int count)
+        private void CreateNewPage(int count, StoragePageManager freeSpaceMgr)
         {
             // create a new header object
             ListHdr header = new ListHdr()
@@ -69,6 +69,7 @@ using System.Text;
                 NextPageIndex = ListHdr.EOLPageIndex,
                 TotalEntriesCount = count,
                 PageEntriesCount = 0,
+                PageWriteIndex = freeSpaceMgr.GetFreePage()
             };
             this.pageHeaderList.Push(header);
 
@@ -78,7 +79,7 @@ using System.Text;
             this.pageList.Push(page);
         }
 
-        private int WriteTopPage(FileStreamWrapper stream, StoragePageManager mgr, int lastPageAddress)
+        private int WriteTopPage(FileStreamWrapper stream, int lastPageAddress)
         {
             // update the header
             ListHdr header = this.pageHeaderList.Pop();
@@ -88,8 +89,8 @@ using System.Text;
             StoragePage page = this.pageList.Pop();
             page.WriteRecord(ListHdr.HeaderRecordIdx, header);
 
-            // get the free page to write to
-            int pageIdx = mgr.GetFreePage(stream);
+            // get the page to write to
+            int pageIdx = header.PageWriteIndex;
 
             // write the page
             pageIdx = page.WritePageData(stream, pageIdx);

@@ -11,7 +11,9 @@
     {
         #region Private Members
 
-        private Queue<int> freePages;
+        private const int SelfWriteBarrier = -1;
+
+        private List<int> freePages;
 
         private List<int> managerStoragePages;
         private bool writingSelf;
@@ -22,32 +24,60 @@
 
         public StoragePageManager()
         {
-            this.freePages = new Queue<int>();
+            this.freePages = new List<int>();
 
             this.managerStoragePages = new List<int>();
             this.writingSelf = false;
         }
 
-        public int GetFreePage(FileStreamWrapper stream)
+        public int GetFreePage()
         {
-            if (0 == this.freePages.Count
-                || this.writingSelf)
+            int freePage = -1;
+
+            lock (this.freePages)
             {
-                return -1;
+                do
+                {
+                    if (0 == this.freePages.Count)
+                    {
+                        return -1;
+                    }
+
+
+                    if (this.writingSelf)
+                    {
+                        int lastIndex = this.freePages.Count - 1;
+                        freePage = this.freePages[lastIndex];
+                        if(SelfWriteBarrier == freePage)
+                        {
+                            return -1;
+                        }
+                        this.freePages.RemoveAt(lastIndex);
+                    }
+                    else
+                    {
+                        freePage = this.freePages[0];
+                        this.freePages.RemoveAt(0);
+                    }
+                } 
+                while (SelfWriteBarrier == freePage);
             }
 
-            return this.freePages.Dequeue();
+            return freePage;
         }
 
         public void SetFreePage(int page)
         {
-            if (this.freePages.Contains(page))
+            lock (this.freePages)
             {
-                // page already marked as free so nothing to do
-                return;
-            }
+                if (this.freePages.Contains(page))
+                {
+                    // page already marked as free so nothing to do
+                    return;
+                }
 
-            this.freePages.Enqueue(page);
+                this.freePages.Add(page);
+            }
         }
 
         public void SetFreePages(List<int> pages)
@@ -60,20 +90,21 @@
 
         public int WritePageManagerData(FileStreamWrapper stream)
         {
-            this.writingSelf = true;
+            lock (this.freePages)
+            {
+                this.writingSelf = true;
 
-            // make the list of pages to write
-            List<int> freePageList = this.freePages.ToList();
-            freePageList.AddRange(this.managerStoragePages);
+                // make the list of pages to write
+                this.freePages.Insert(0, SelfWriteBarrier);
+                this.freePages.InsertRange(0, this.managerStoragePages);
 
-            // create writer
-            ListWriter<int> writer = new ListWriter<int>();
-            writer.WriteList(stream, this, freePageList, out this.managerStoragePages);
+                // create writer
+                ListWriter<int> writer = new ListWriter<int>();
+                writer.WriteList(stream, this, this.freePages, out this.managerStoragePages);
 
-            // update the free page index
-            this.SetFreePages(freePageList);
+                this.writingSelf = false;
+            }
 
-            this.writingSelf = false;
             return this.managerStoragePages[0];
         }
 
