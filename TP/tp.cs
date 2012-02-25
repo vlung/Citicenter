@@ -281,7 +281,7 @@ namespace TP
         /// </summary>
         /// <param name="context">Identifier of the transaction</param>
         /// <returns>True if the preparation is successful (ie Prepared).</returns>
-        bool RequestToPrepare(Transaction context);
+        bool Prepare(Transaction context);
 
         /// <param name="context"></param>
         void Commit(Transaction context);

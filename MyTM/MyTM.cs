@@ -11,6 +11,83 @@ using System.Threading.Tasks;
 
 namespace MyTM
 {
+    public abstract class ExecuteWithTimeoutBase
+    {
+        public const int Execute_Timeout = 5000; // Set timeout to 5 seconds
+
+        protected Thread t;
+        public bool completed { get; protected set; }
+        public string name { get; protected set; }
+
+        public ExecuteWithTimeoutBase(string name)
+        {
+            completed = false;
+            this.name = name;
+            t = null;
+        }
+
+        ~ExecuteWithTimeoutBase()
+        {
+            if (t != null && t.IsAlive)
+            {
+                t.Abort();
+            }
+        }
+
+        public void Run()
+        {
+            if (t == null)
+            {
+                throw new InvalidOperationException();
+            }
+            t.Start();
+            completed = t.Join(Execute_Timeout);
+            if (!completed)
+            {
+                t.Abort();
+                t = null;
+                throw new TimeoutException(String.Format("{0} take more than {1}ms to execute. Aborting...", name, Execute_Timeout));
+            }
+            t = null;
+        }
+    }
+
+    public class ExecuteActionWithTimeout : ExecuteWithTimeoutBase
+    {
+        protected Action action;
+
+        public ExecuteActionWithTimeout(string name, Action action)
+            : base(name)
+        {
+            this.action = action;
+            t = new Thread(RunAction);
+            t.Name = string.Format("ExecuteActionWithTimeout:{0} {1}", name, action.Method.Name);
+        }
+
+        protected void RunAction()
+        {
+            action();
+        }
+    }
+
+    public class ExecuteFuncWithTimeout<ResultT> : ExecuteWithTimeoutBase
+    {
+        protected Func<ResultT> func;
+        public ResultT result { get; private set; }
+
+        public ExecuteFuncWithTimeout(string name, Func<ResultT> func) : base(name)
+        {
+            this.func = func;
+            t = new Thread(RunFunc);
+            t.Name = string.Format("ExecuteFuncWithTimeout:{0} {1}", name, func.Method.Name);
+        }
+
+        protected void RunFunc()
+        {
+            result = func();
+        }
+    }
+
 	/// <summary>
 	/*  Transaction Manager */
 	/// </summary>
@@ -79,30 +156,29 @@ namespace MyTM
 
                 // Request to prepare for all resource managers involved in this transaction
                 bool allPrepared = true;
-                Task<bool>[] prepareTasks = new Task<bool>[rmList.Count];
-                for (int i = 0; i < rmList.Count; ++i)
+                List<ExecuteFuncWithTimeout<bool>> execPrepareList = new List<ExecuteFuncWithTimeout<bool>>();
+                try
                 {
-                    prepareTasks[i] = Task.Factory.StartNew<bool>((obj) =>
-                        {
-                            return ((RM)obj).RequestToPrepare(context);
-                        },
-                        rmList[i]);
+                    for (int i = 0; i < rmList.Count; ++i)
+                    {
+                        ExecuteFuncWithTimeout<bool> exec = new ExecuteFuncWithTimeout<bool>(rmList[i].GetName(), () => rmList[i].Prepare(context));
+                        execPrepareList.Add(exec);
+                        exec.Run();
+                    }
                 }
-
-                // Wait for all resource managers to respond to the request to prepare
-                if (!Task.WaitAll(prepareTasks, RM_TIMEOUT))
+                catch (TimeoutException)
                 {
-                    // If any of the resource managers timed out, cancel active tasks and abort the transaction
-                    System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for the RequestToPrepare response. Aborting transaction...", context.Id));
+                    System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RequestToPrepare. Aborting transaction...", context.Id));
                     allPrepared = false;
                 }
-                else
+
+                if (allPrepared)
                 {
                     // If all resource managers are ready responded to the request to prepare, check if
                     // any of them responded NO to the request.
-                    foreach (Task<bool> t in prepareTasks)
+                    foreach (ExecuteFuncWithTimeout<bool> exec in execPrepareList)
                     {
-                        if (t.Result == false) // Since the task did not time out, getting the result is non-blocking.
+                        if (exec.completed && exec.result == false)
                         {
                             allPrepared = false;
                             System.Console.WriteLine(string.Format("Transaction {0} received No for RequestToPrepare. Aborting transaction...", context.Id));
@@ -110,22 +186,28 @@ namespace MyTM
                         }
                     }
                 }
+                execPrepareList.Clear();
 
                 // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
                 if (allPrepared)
                 {
+                    bool allCommitted = true;
                     System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
-                    Task[] commitTasks = new Task[rmList.Count];
                     for (int i = 0; i < rmList.Count; ++i)
                     {
-                        commitTasks[i] = Task.Factory.StartNew((obj) =>
+                        ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Commit(context));
+                        try
                         {
-                            ((RM)obj).Commit(context);
-                        },
-                        rmList[i]);
+                            exec.Run();
+                        }
+                        catch (TimeoutException)
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to commit...", context.Id, rmList[i].GetName()));
+                            allCommitted = false;
+                        }
                     }
-                    // TODO: How should we handle commit timeout?
-                    if (Task.WaitAll(commitTasks, RM_TIMEOUT))
+ 
+                    if (allCommitted)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
                     }
@@ -136,18 +218,23 @@ namespace MyTM
                 }
                 else
                 {
+                    bool allAborted = true;
                     System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
-                    Task[] abortTasks = new Task[rmList.Count];
                     for (int i = 0; i < rmList.Count; ++i)
                     {
-                        abortTasks[i] = Task.Factory.StartNew((obj) =>
+                        ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
+                        try
                         {
-                            ((RM)obj).Abort(context);
-                        },
-                        rmList[i]);
+                            exec.Run();
+                        }
+                        catch (TimeoutException)
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
+                            allAborted = false;
+                        }
                     }
-                    // TODO: How should we handle commit timeout?
-                    if (Task.WaitAll(abortTasks, RM_TIMEOUT))
+
+                    if (allAborted)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                     }
@@ -184,18 +271,23 @@ namespace MyTM
                     }
                 }
 
+                bool allAborted = true;
                 System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
-                Task[] abortTasks = new Task[rmList.Count];
                 for (int i = 0; i < rmList.Count; ++i)
                 {
-                    abortTasks[i] = Task.Factory.StartNew((obj) =>
+                    ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
+                    try
                     {
-                        ((RM)obj).Abort(context);
-                    },
-                    rmList[i]);
+                        exec.Run();
+                    }
+                    catch (TimeoutException)
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
+                        allAborted = false;
+                    }
                 }
-                // TODO: How should we handle commit timeout?
-                if (Task.WaitAll(abortTasks, RM_TIMEOUT))
+
+                if (allAborted)
                 {
                     System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                 }

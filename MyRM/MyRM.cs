@@ -7,6 +7,7 @@ namespace MyRM
     using System.Runtime.Remoting.Channels.Http;
     using System.Text;
     using System.Linq;
+    using System.Threading;
     using TP;
 
     /// <summary>
@@ -77,20 +78,19 @@ namespace MyRM
             while (0 < retryCount);
         }
 
-        public enum PrepareToCommitFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
-        public PrepareToCommitFailure prepareToCommitFailure = PrepareToCommitFailure.NoFailure;
+        public enum PrepareFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
+        public PrepareFailure prepareFailure = PrepareFailure.NoFailure;
 
-        public bool RequestToPrepare(TP.Transaction context)
+        public bool Prepare(TP.Transaction context)
         {
-            if (prepareToCommitFailure == PrepareToCommitFailure.PrepareReturnsNo)
+            if (prepareFailure == PrepareFailure.PrepareReturnsNo)
             {
                 return false;
             }
-            else if (prepareToCommitFailure == PrepareToCommitFailure.PrepareTimesOut)
+            else if (prepareFailure == PrepareFailure.PrepareTimesOut)
             {
-                while (true)
-                {
-                }
+                // Sleep forever to simulate timeout
+                Thread.Sleep(System.Threading.Timeout.Infinite);
             }
             return true;
         }
