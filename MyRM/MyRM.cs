@@ -17,6 +17,7 @@ namespace MyRM
         #region Member Variables
 
         private string name = null;
+        private string tmRegistrationString = null;
         private StorageManager dataStore = null;
 
         private TP.TM transactionManager = null;
@@ -26,6 +27,7 @@ namespace MyRM
         public MyRM()
         {
             this.name = GlobalState.Name;
+            this.tmRegistrationString = string.Empty;
             this.dataStore = null;
         }
 
@@ -51,11 +53,29 @@ namespace MyRM
                 throw new AbortTransationException();
             }
 
-            // enlist with TM
-            if (!this.transactionManager.Enlist(context, this.GetName()))
+            // enlist with 
+            int retryCount = 5;
+            do
             {
-                throw new AbortTransationException();
+                try
+                {
+                    if (!this.transactionManager.Enlist(context, this.GetName()))
+                    {
+                        throw new AbortTransationException();
+                    }
+
+                    // clear the retry count since we were successfull
+                    retryCount = 0;
+                }
+                catch (UnknownRMException)
+                {
+                    // the RM does not know about us so register again
+                    Console.Write("Need to register");
+                    this.transactionManager.Register(this.tmRegistrationString);
+                    retryCount--;
+                }
             }
+            while (0 < retryCount);
         }
 
         public enum PrepareToCommitFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
@@ -473,6 +493,7 @@ namespace MyRM
         {
             // set the name of the RM
             this.SetName(name);
+            this.tmRegistrationString = string.Format("{0}${1}", url, name);            
 
             // init storage
             this.InitStorage();
@@ -549,7 +570,7 @@ namespace MyRM
                     this.transactionManager = (TP.TM)System.Activator.GetObject(typeof(TP.TM), tmUrl);
 
                     Transaction tid = this.transactionManager.Start();
-                    this.transactionManager.Register(url + "$" + this.GetName());
+                    this.transactionManager.Register(this.tmRegistrationString);
                     this.transactionManager.Abort(tid);
                 }
                 catch (ArgumentException e)
@@ -564,29 +585,6 @@ namespace MyRM
 
             // TODO: figure out what to do about the prepared transactions
         }
-
-        #region Exception Classes
-
-        [Serializable]
-        public class AbortTransationException : System.Exception
-        {
-            public AbortTransationException()
-                : base("Unable resolve logical address.")
-            {
-            }
-
-            public AbortTransationException(string message)
-                : base(message)
-            {
-            }
-
-            public AbortTransationException(string message, System.Exception e)
-                : base(message, e)
-            {
-            }
-        }
-
-        #endregion
 
         #region Process Startup
 

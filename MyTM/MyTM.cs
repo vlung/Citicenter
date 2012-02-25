@@ -279,6 +279,9 @@ namespace MyTM
         /// <param name="context"></param>
         public bool Enlist(TP.Transaction context, string enlistingRM)
         {
+            // determine if this is an RM we know about
+            this.ValidateRM(enlistingRM);
+
             lock (this.activeTransactions)
             {
                 if (!this.activeTransactions.ContainsKey(context))
@@ -357,6 +360,27 @@ namespace MyTM
             }
 
             return output;
+        }
+
+        private void ValidateRM(string rmName)
+        {
+            bool isKnown = false;
+            lock(this.resourceManagers)
+            {
+                foreach (RM manager in this.resourceManagers)
+                {
+                    if (manager.GetName().Equals(rmName))
+                    {
+                        isKnown = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isKnown)
+            {
+                throw new UnknownRMException();
+            }
         }
 
         #endregion

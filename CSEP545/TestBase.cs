@@ -55,6 +55,25 @@ namespace CSEP545
             Pause("Press Enter to Start Rooms RM");
             StartRoomsRM();
 
+            t = wc.Start();
+            wc.AddCars(t, "Car2", 1, 1);
+            wc.AddSeats(t, "flt345", 2, 1);
+            wc.Commit(t);
+
+            t = wc.Start();
+            string[] cars = wc.ListCars(t);
+            foreach (string car in cars)
+            {
+                Console.WriteLine(car);
+            }
+
+            flights = wc.ListFlights(t);
+            foreach (string f in flights)
+            {
+                Console.WriteLine(f);
+            }
+            wc.Commit(t);
+
             Pause("Press Enter to Exit");
             StopProcesses();
         }
