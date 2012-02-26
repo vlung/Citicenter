@@ -546,7 +546,7 @@ namespace MyRM
                 }
 
                 Console.WriteLine("{0}: Waiting for transaction complete ({1} second(s))", GlobalState.Name, loopCount);
-                System.Threading.Thread.Sleep(1000);
+                System.Threading.Thread.Sleep(500);
                 loopCount++;
             }
 
@@ -613,15 +613,24 @@ namespace MyRM
             }
 
             List<Transaction> transactionList = this.dataStore.GetPrepedTransactionsList();
-            foreach (Transaction context in transactionList)
+            for(int idx = 0; idx < transactionList.Count; idx++)
             {
+                Transaction context = transactionList[idx];
+                if (null == context)
+                {
+                    continue;
+                }
+
                 TransactionStatus status = this.transactionManager.GetTransactionStatus(context);
                 switch (status)
                 {
                     case TransactionStatus.ACTIVE:
                         {
-                            continue;
+                            // we need to wait for this transaction's status to be resolved
+                            idx--;
+                            System.Threading.Thread.Sleep(500);
                         }
+                        break;
 
                     case TransactionStatus.COMMITED:
                         {
