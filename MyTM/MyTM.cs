@@ -1,5 +1,6 @@
 using System;
 using TP;
+using System.IO;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Serialization.Formatters;
 using System.Collections;
@@ -8,9 +9,12 @@ using System.Runtime.Remoting;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace MyTM
 {
+    #region Execution with timeout classes
+
     public abstract class ExecuteWithTimeoutBase
     {
         public const int Execute_Timeout = 5000; // Set timeout to 5 seconds
@@ -88,7 +92,133 @@ namespace MyTM
         }
     }
 
-	/// <summary>
+    #endregion
+
+    #region CommittedTransactions class
+    // CommittedTransactions is a singleton class that keep tracks of committed transactions
+    // with partial Done response in a file. This allows the RM to confirm whether a transaction
+    // has been committed to deal with certainty and it also allows the TM to requery the RM for
+    // Done status in case the Done message was lost in transmission.
+    public class CommittedTransactions
+    {
+        const string CommittedTransactionFilename = "ComXact.txt";
+
+        private static readonly CommittedTransactions instance = new CommittedTransactions();
+        public Dictionary<string, List<string>> transactionList {get; protected set;}
+
+        // Make sure the class must be instantiated using the GetInstance method
+        private CommittedTransactions()
+        {
+            transactionList = new Dictionary<string, List<string>>();
+            ReadFromFile();
+        }
+
+        public static CommittedTransactions GetInstance()
+        {
+            return instance;
+        }
+
+        private string GetFilename()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), CommittedTransactionFilename);
+        }
+
+        private bool SerializeStringToKeyValue(string s, out string key, out List<string> value)
+        {
+            key = null;
+            value = null;
+
+            string[] tokens = s.Split(',');
+
+            if (tokens.Length == 0)
+            {
+                return false;
+            }
+            key = tokens[0];
+            value = tokens.Skip(1).ToList<string>();
+            return true;
+        }
+
+        private string SerializeKeyValueToString(string key, List<string> value, bool forceWrite = false)
+        {
+            if (forceWrite || (value != null && value.Count > 0))
+            {
+                System.Text.StringBuilder sb = new System.Text.StringBuilder(key);
+
+                if (value != null)
+                {
+                    foreach (string item in value)
+                    {
+                        sb.Append("," + item);
+                    }
+                }
+                return sb.ToString();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public void UpdateAndFlush(string transactionId, List<string> undoneRMList)
+        {
+            // Update transaction list
+            transactionList[transactionId] = undoneRMList;
+
+            // Append transaction information to file. If this is an existing transaction, it may
+            // cause the file to have multiple occurrences of the same transaction ID. We will take
+            // care of this in ReadFromFile() to make sure the last entry wins, this will avoid the need
+            // to rewrite the whole file every time an existing transaction is updated.
+            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
+            {
+                sw.WriteLine(SerializeKeyValueToString(transactionId, transactionList[transactionId], true));
+            }
+        }
+
+        public void ReadFromFile()
+        {         
+            transactionList.Clear();
+            try
+            {
+                string[] content = File.ReadAllLines(GetFilename());
+                foreach (string s in content)
+                {
+                    string key;
+                    List<string> value;
+
+                    if (SerializeStringToKeyValue(s, out key, out value))
+                    {
+                        if (value != null && value.Count > 0)
+                        {
+                            transactionList[key] = value;
+                        }
+                        else
+                        {
+                            transactionList.Remove(key);
+                        }
+                    }
+                }
+            }
+            catch(Exception)
+            {
+                transactionList.Clear();
+            }
+        }
+
+        public void WriteToFile()
+        {
+            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), false))
+            {
+                foreach (string key in transactionList.Keys)
+                {
+                    sw.WriteLine(SerializeKeyValueToString(key, transactionList[key]));
+                }
+            }
+        }
+    }
+    #endregion
+
+    /// <summary>
 	/*  Transaction Manager */
 	/// </summary>
     public class MyTM : System.MarshalByRefObject, TP.TM
@@ -98,6 +228,7 @@ namespace MyTM
         private HashSet<RM> resourceManagers;
         private Dictionary<Transaction, List<string>> activeTransactions;
         private static int RM_TIMEOUT = 5000;
+        private CommittedTransactions committedTransactions;
 
         #endregion
 
@@ -108,6 +239,7 @@ namespace MyTM
             System.Console.WriteLine("Transaction Manager instantiated");
             resourceManagers = new HashSet<RM>();
             activeTransactions = new Dictionary<Transaction, List<string>>();
+            committedTransactions = CommittedTransactions.GetInstance();
         }
 
         #region Methods called from WC
