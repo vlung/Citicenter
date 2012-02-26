@@ -103,13 +103,32 @@ namespace MyTM
     {
         const string CommittedTransactionFilename = "ComXact.txt";
 
+        public class CommittedTransactionsValue
+        {
+            public enum TransactionType { Commit = 0, Abort = 1 };
+            public TransactionType transactionType { get; set; }
+            public List<string> nackRMList { get; set; }
+
+            public CommittedTransactionsValue()
+            {
+                transactionType = TransactionType.Commit;
+                nackRMList = new List<string>();
+            }
+
+            public CommittedTransactionsValue(TransactionType transactionType, List<string> nackRMList)
+            {
+                this.transactionType = transactionType;
+                this.nackRMList = nackRMList;
+            }
+        }
+            
         private static readonly CommittedTransactions instance = new CommittedTransactions();
-        public Dictionary<string, List<string>> transactionList {get; protected set;}
+        public Dictionary<string, CommittedTransactionsValue> transactionList {get; protected set;}
 
         // Make sure the class must be instantiated using the GetInstance method
         private CommittedTransactions()
         {
-            transactionList = new Dictionary<string, List<string>>();
+            transactionList = new Dictionary<string, CommittedTransactionsValue>();
             ReadFromFile();
         }
 
@@ -123,7 +142,7 @@ namespace MyTM
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), CommittedTransactionFilename);
         }
 
-        private bool SerializeStringToKeyValue(string s, out string key, out List<string> value)
+        private bool SerializeFromString(string s, out string key, out CommittedTransactionsValue value)
         {
             key = null;
             value = null;
@@ -135,19 +154,26 @@ namespace MyTM
                 return false;
             }
             key = tokens[0];
-            value = tokens.Skip(1).ToList<string>();
+            value = new CommittedTransactionsValue();
+            if (tokens.Length >= 2)
+            {
+                value.transactionType = (int.Parse(tokens[1]) == 0) ? CommittedTransactionsValue.TransactionType.Commit : CommittedTransactionsValue.TransactionType.Abort;
+            }
+            value.nackRMList = tokens.Skip(2).ToList<string>();
             return true;
         }
 
-        private string SerializeKeyValueToString(string key, List<string> value, bool forceWrite = false)
+        private string SerializeToString(string key, CommittedTransactionsValue value, bool forceWrite = false)
         {
-            if (forceWrite || (value != null && value.Count > 0))
+            if (forceWrite || (value != null && value.nackRMList.Count > 0))
             {
                 System.Text.StringBuilder sb = new System.Text.StringBuilder(key);
 
-                if (value != null)
+                if (value != null && value.nackRMList != null)
                 {
-                    foreach (string item in value)
+                    sb.Append("," + ((value.transactionType == CommittedTransactionsValue.TransactionType.Commit) ? "0" : "1"));
+
+                    foreach (string item in value.nackRMList)
                     {
                         sb.Append("," + item);
                     }
@@ -160,10 +186,17 @@ namespace MyTM
             }
         }
 
-        public void UpdateAndFlush(string transactionId, List<string> undoneRMList)
+        public void UpdateAndFlush(string transactionId, CommittedTransactionsValue value)
         {
             // Update transaction list
-            transactionList[transactionId] = undoneRMList;
+            if (value == null || value.nackRMList == null || value.nackRMList.Count == 0)
+            {
+                transactionList.Remove(transactionId);
+            }
+            else
+            {
+                transactionList[transactionId] = value;
+            }
 
             // Append transaction information to file. If this is an existing transaction, it may
             // cause the file to have multiple occurrences of the same transaction ID. We will take
@@ -171,7 +204,7 @@ namespace MyTM
             // to rewrite the whole file every time an existing transaction is updated.
             using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
             {
-                sw.WriteLine(SerializeKeyValueToString(transactionId, transactionList[transactionId], true));
+                sw.WriteLine(SerializeToString(transactionId, value, true));
             }
         }
 
@@ -184,11 +217,11 @@ namespace MyTM
                 foreach (string s in content)
                 {
                     string key;
-                    List<string> value;
+                    CommittedTransactionsValue value;
 
-                    if (SerializeStringToKeyValue(s, out key, out value))
+                    if (SerializeFromString(s, out key, out value))
                     {
-                        if (value != null && value.Count > 0)
+                        if (value != null && value.nackRMList.Count > 0)
                         {
                             transactionList[key] = value;
                         }
@@ -211,7 +244,7 @@ namespace MyTM
             {
                 foreach (string key in transactionList.Keys)
                 {
-                    sw.WriteLine(SerializeKeyValueToString(key, transactionList[key]));
+                    sw.WriteLine(SerializeToString(key, transactionList[key]));
                 }
             }
         }
@@ -323,7 +356,8 @@ namespace MyTM
                 // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
                 if (allPrepared)
                 {
-                    bool allCommitted = true;
+                    CommittedTransactions.CommittedTransactionsValue committedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
+
                     System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
                     for (int i = 0; i < rmList.Count; ++i)
                     {
@@ -334,23 +368,26 @@ namespace MyTM
                         }
                         catch (TimeoutException)
                         {
+                            committedTransactionValue.nackRMList.Add(rmList[i].GetName());
                             System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to commit...", context.Id, rmList[i].GetName()));
-                            allCommitted = false;
                         }
                     }
  
-                    if (allCommitted)
+                    if (committedTransactionValue.nackRMList.Count == 0)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
                     }
                     else
                     {
+                        committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
                         System.Console.WriteLine(string.Format("Transaction {0} commited with some timeouts", context.Id));
                     }
                 }
                 else
                 {
-                    bool allAborted = true;
+                    CommittedTransactions.CommittedTransactionsValue abortedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
+                    abortedTransactionValue.transactionType = CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort;
+
                     System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
                     for (int i = 0; i < rmList.Count; ++i)
                     {
@@ -361,17 +398,18 @@ namespace MyTM
                         }
                         catch (TimeoutException)
                         {
+                            abortedTransactionValue.nackRMList.Add(rmList[i].GetName());
                             System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
-                            allAborted = false;
                         }
                     }
 
-                    if (allAborted)
+                    if (abortedTransactionValue.nackRMList.Count == 0)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                     }
                     else
                     {
+                        committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                         System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
                     }
                 }
@@ -403,7 +441,9 @@ namespace MyTM
                     }
                 }
 
-                bool allAborted = true;
+                CommittedTransactions.CommittedTransactionsValue abortedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
+                abortedTransactionValue.transactionType = CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort;
+
                 System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
                 for (int i = 0; i < rmList.Count; ++i)
                 {
@@ -414,17 +454,18 @@ namespace MyTM
                     }
                     catch (TimeoutException)
                     {
+                        abortedTransactionValue.nackRMList.Add(rmList[i].GetName());
                         System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
-                        allAborted = false;
                     }
                 }
 
-                if (allAborted)
+                if (abortedTransactionValue.nackRMList.Count == 0)
                 {
                     System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                 }
                 else
                 {
+                    committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                     System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
                 }
             }
