@@ -42,6 +42,18 @@ namespace MyRM
             return this.name;
         }
 
+        public void Abort(TP.Transaction context)
+        {
+            // abort transaction
+            this.dataStore.Abort(context);
+        }
+
+        public void Commit(TP.Transaction context)
+        {
+            // commit transaction
+            this.dataStore.Commit(context);
+        }
+
         /// <summary>
         /// Called to enlist with transaction manager if we are not in shutdown mode
         /// </summary>
@@ -52,6 +64,12 @@ namespace MyRM
             {
                 // we are not intialized yet so just abort
                 throw new AbortTransationException();
+            }
+
+            if (null == this.transactionManager)
+            {
+                // we are running without a TM so nothing else to do here
+                return;
             }
 
             // enlist with 
@@ -102,18 +120,6 @@ namespace MyRM
                 return false;
             }
             return true;
-        }
-
-        public void Commit(TP.Transaction context)
-        {
-            // commit transaction
-            this.dataStore.Commit(context);
-        }
-
-        public void Abort(TP.Transaction context)
-        {
-            // abort transaction
-            this.dataStore.Abort(context);
         }
 
         /// <summary>
@@ -524,19 +530,17 @@ namespace MyRM
             // execution loop
             while (GlobalState.Mode == GlobalState.RunMode.Loop)
             {
-                // check on the prepared transactions
-                // in case we missed some data due to timeout
-                this.ProcessPreparedTransactions();
-
-                // sleep for 20 sec
-                System.Threading.Thread.Sleep(20000);
+                // sleep for 2 sec
+                System.Threading.Thread.Sleep(2000);
             }
 
             // wait for active transactions loop
             int loopCount = 0;
             while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
             {
-                if (0 == this.dataStore.GetActiveTransactionsCount())
+                List<Transaction> activeTransactions = this.dataStore.GetActiveTransactionList();
+                if (null == activeTransactions 
+                    || 0 == activeTransactions.Count)
                 {
                     break;
                 }
@@ -602,6 +606,12 @@ namespace MyRM
 
         private void ProcessPreparedTransactions()
         {
+            if (null == this.transactionManager)
+            {
+                // we are running without a TM so nothing to do here
+                return;
+            }
+
             List<Transaction> transactionList = this.dataStore.GetPrepedTransactionsList();
             foreach (Transaction context in transactionList)
             {

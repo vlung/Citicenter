@@ -89,9 +89,9 @@
             this.lockManager.UnlockAll(context);
         }
 
-        public int GetActiveTransactionsCount()
+        public List<Transaction> GetActiveTransactionList()
         {
-            return aGetActiveTransactionsCount();
+            return aGetActiveTransactionList();
         }
 
         public List<Transaction> GetPrepedTransactionsList()
@@ -354,7 +354,7 @@
                         page.WriteRecord(address.Record, data);
                     }
                 }
-                catch (StoragePage.InsuffcientSpaceException e)
+                catch (StoragePage.InsuffcientSpaceException)
                 {
                     // did not fit on last page so allocate a new page
                     page = new StoragePage();
@@ -522,11 +522,11 @@
             }
         }
 
-        private int aGetActiveTransactionsCount()
+        private List<Transaction> aGetActiveTransactionList()
         {
             lock (ManagerLock)
             {
-                return this.activeContextMap.Count;
+                return this.activeContextMap.Keys.ToList();
             }
         }
 
@@ -832,7 +832,7 @@
                 rootPage.ReadPageData(this.dataFile, RootPage);
                 dbRoot = (DBHdr)rootPage.ReadRecord(0);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 dbRoot = null;
             }

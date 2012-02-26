@@ -185,7 +185,7 @@ namespace UnitTestProject
                 bundle.lm.UnlockAll(t);
                 bundle.status = 0;
             }
-            catch (MyLM.DeadLockDetected e)
+            catch (MyLM.DeadLockDetected)
             {
                 bundle.status = 1;
             }

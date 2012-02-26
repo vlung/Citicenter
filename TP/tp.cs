@@ -299,6 +299,18 @@ namespace TP
         void SetName(string name);
         
         /// <summary>
+        /// The function aborts the transaction
+        /// </summary>
+        /// <param name="context"></param>
+        void Abort(Transaction context);
+
+        /// <summary>
+        /// The function commits the transaction
+        /// </summary>
+        /// <param name="context"></param>
+        void Commit(Transaction context);
+
+        /// <summary>
         /// This function enlist the RM in the transaction
         /// </summary>
         /// <param name="context"></param>
@@ -310,12 +322,6 @@ namespace TP
         /// <param name="context">Identifier of the transaction</param>
         /// <returns>True if the preparation is successful (ie Prepared).</returns>
         bool Prepare(Transaction context);
-
-        /// <param name="context"></param>
-        void Commit(Transaction context);
-
-        /// <param name="context"></param>
-        void Abort(Transaction context);
 
         /// <summary>
         /// Add "count" items 
