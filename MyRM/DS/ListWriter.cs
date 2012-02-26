@@ -39,7 +39,7 @@ using System.Text;
                     this.pageList.Peek().AddRecord(item);
                     this.pageHeaderList.Peek().PageEntriesCount++;
                 }
-                catch (StoragePage.InsuffcientSpaceException e)
+                catch (StoragePage.InsuffcientSpaceException)
                 {
                     this.CreateNewPage(list.Count, freeSpaceMgr);
                     idx--;

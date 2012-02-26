@@ -182,34 +182,62 @@ namespace TP
     }
 
 
+    public enum TransactionStatus
+    {
+        ABORTED = 0,
+        ACTIVE,
+        COMMITED
+    }
+
 	/// <summary>
 	/*   Transaction manager interface */
 	/// </summary>
 	public interface TM
 	{
-		Transaction Start();
+        /// <summary>
+        /// Called to abort a transaction
+        /// </summary>
+        /// <param name="context"></param>
+        void Abort(Transaction context);
 
+		/// <summary>
+		/// Called to commit a transaction.
+		/// </summary>
 		/// <param name="context"></param>
 		void Commit(Transaction context);
 
-
-        RM GetResourceMananger(string name);
-        
-		/// <param name="context"></param>
-		void Abort(Transaction context);
-		
-		/// <summary>
-		/*   Enlist the RM as a member of this transaction */
-		/// </summary>
-		/// <param name="context"></param>
+        /// <summary>
+        /// Enlist the RM as a member of this transaction
+        /// </summary>
+        /// <param name="context"></param>
         /// <param name="enlistingRM"></param>
-		bool Enlist(Transaction context, string enlistingRM);
+        bool Enlist(Transaction context, string enlistingRM);
 
         /// <summary>
-		/* Register rm so that later TM could coordinate for two-phase commit. */
+        /// Retrieves the resource manager instance by name.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        RM GetResourceMananger(string name);
+
+        /// <summary>
+        /// Called to determine if the transaction was commited.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        TransactionStatus GetTransactionStatus(Transaction context);
+        
+		/// <summary>
+		/// Register rm so that later TM could coordinate for two-phase commit.
 		/// </summary>
 		/// <param name="rm"></param>
         void Register(string rm);
+
+        /// <summary>
+        /// Called to start a new transaction
+        /// </summary>
+        /// <returns></returns>
+        Transaction Start();
 	}
 
 	/// <summary>
@@ -271,6 +299,18 @@ namespace TP
         void SetName(string name);
         
         /// <summary>
+        /// The function aborts the transaction
+        /// </summary>
+        /// <param name="context"></param>
+        void Abort(Transaction context);
+
+        /// <summary>
+        /// The function commits the transaction
+        /// </summary>
+        /// <param name="context"></param>
+        void Commit(Transaction context);
+
+        /// <summary>
         /// This function enlist the RM in the transaction
         /// </summary>
         /// <param name="context"></param>
@@ -282,12 +322,6 @@ namespace TP
         /// <param name="context">Identifier of the transaction</param>
         /// <returns>True if the preparation is successful (ie Prepared).</returns>
         bool Prepare(Transaction context);
-
-        /// <param name="context"></param>
-        void Commit(Transaction context);
-
-        /// <param name="context"></param>
-        void Abort(Transaction context);
 
         /// <summary>
         /// Add "count" items 

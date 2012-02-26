@@ -297,7 +297,7 @@ namespace MyWC
                     Transaction tid = TransactionManager.Start();
                     TransactionManager.Abort(tid);
                 }
-                catch (RemotingException e)
+                catch (RemotingException)
                 {
                     TransactionManager = null;
                     Console.WriteLine("Waiting 1 second for Transaction Manager \"{0}\"", tmURL);

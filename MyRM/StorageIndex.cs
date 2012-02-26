@@ -60,6 +60,19 @@
             this.indexMap[resourceId] = address;
         }
 
+        public void ClearDirtyFlags()
+        {
+            // mark all items as clean
+            foreach (var item in this.indexMap.Values)
+            {
+                if (null == item)
+                {
+                    continue;
+                }
+                item.IsDirty = false;
+            }
+        }
+
         public int WriteIndexData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
@@ -75,16 +88,6 @@
             // update the list that stores the physical page idx
             freedPages = this.indexStoragePages;
             this.indexStoragePages = pageIdxList;
-
-            // mark all items as clean
-            foreach (var item in this.indexMap.Values)
-            {
-                if (null == item)
-                {
-                    continue;
-                }
-                item.IsDirty = false;
-            }
 
             // return the index of the first page
             return this.indexStoragePages[0];

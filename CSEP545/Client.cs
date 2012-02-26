@@ -249,7 +249,7 @@ namespace CSEP545
             } else if ( string.Compare("exit",(command),true) == 0 ||  string.Compare("quit",(command),true) == 0 ) {
                 try {
                     if ( tx != null ) myWC.Abort(tx);
-                } catch ( Exception ignore ) {}
+                } catch ( Exception ) {}
                 Environment.Exit(0);
             
             } else {
