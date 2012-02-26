@@ -115,8 +115,8 @@
             // TEST write abort
             Resource[] data2 = 
             {
-                new Resource(data[0].Id, 10, 43)
-                , new Resource(data[1].Id, 12, 43)
+                new Resource(data[0].Id, 11, 21)
+                , new Resource(data[1].Id, 12, 22)
             };
 
             // write the data
@@ -161,6 +161,7 @@
                 }
             }
 
+            mgr.Prepare(context2);
             mgr.Commit(context2);
         }
 
@@ -205,6 +206,7 @@
             {
                 Assert.Fail("Test delete item failed.");
             }
+            mgr.Prepare(context2);
             mgr.Commit(context2);
 
             // read all
@@ -291,6 +293,7 @@
                 }
             }
 
+            mgr.Prepare(context2);
             mgr.Commit(context2);
         }
 
@@ -335,6 +338,7 @@
             {
                 Assert.Fail("Test delete item failed.");
             }
+            mgr.Prepare(context2);
             mgr.Commit(context2);
 
             // read all
@@ -368,6 +372,7 @@
 
             if (createTransaction)
             {
+                storage.Prepare(context);
                 storage.Commit(context);
             }
         }
@@ -392,6 +397,7 @@
 
             if (createTransaction)
             {
+                storage.Prepare(context);
                 storage.Commit(context);
             }
         }
@@ -416,6 +422,7 @@
             if (createTransaction
                 && !abort)
             {
+                storage.Prepare(context);
                 storage.Commit(context);
             }
             else if (createTransaction
@@ -445,6 +452,7 @@
             if (createTransaction
                 && !abort)
             {
+                storage.Prepare(context);
                 storage.Commit(context);
             }
             else if (createTransaction

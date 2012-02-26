@@ -39,5 +39,11 @@ namespace MyRM.DS
             get;
             set;
         }
+
+        public int PrepedTransactions
+        {
+            get;
+            set;
+        }
     }
 }

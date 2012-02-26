@@ -23,6 +23,11 @@ namespace MyRM
             this.pageTableStoragePages = new List<int>();
         }
 
+        public int GetLastLogicalPage()
+        {
+            return (this.pageTable.Count - 1);
+        }
+
         public int GetPhysicalPage(int logicalPage)
         {
             if (logicalPage >= 0
@@ -61,7 +66,16 @@ namespace MyRM
 
             this.pageTable[logicalPage].PageIndex = physicalPage;
             this.pageTable[logicalPage].IsDirty = true;
-        }        
+        }
+
+        public void ClearDirtyFlags()
+        {
+            // mark all items as clean
+            foreach (PageTableItem item in this.pageTable)
+            {
+                item.IsDirty = false;
+            }
+        }
 
         public int WritePageTableData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
@@ -74,12 +88,6 @@ namespace MyRM
             // update the list that stores the physical page idx
             freedPages = this.pageTableStoragePages;
             this.pageTableStoragePages = pageIdxList;
-
-            // mark all items as clean
-            foreach (PageTableItem item in this.pageTable)
-            {
-                item.IsDirty = false;
-            }
 
             // return the index of the first page
             return this.pageTableStoragePages[0];
@@ -117,6 +125,11 @@ namespace MyRM
 
             // return index of the first page
             return this.pageTableStoragePages[0];
+        }
+
+        public List<int> GetStoragePages()
+        {
+            return this.pageTableStoragePages;
         }
 
         #endregion

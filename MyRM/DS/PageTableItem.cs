@@ -1,10 +1,6 @@
 ﻿namespace MyRM.DS
 {
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using TP;
 
     [System.Serializable()]
     class PageTableItem
@@ -13,9 +9,7 @@
 
         // use one letter names to make serialization compact
         private int p;
-
-        [NonSerialized]
-        private bool isDirty;
+        private bool d;
 
         #endregion
 
@@ -29,11 +23,11 @@
         {
             get
             {
-                return isDirty;
+                return d;
             }
             set
             {
-                isDirty = value;
+                d = value;
             }
         }
 

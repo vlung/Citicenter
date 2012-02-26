@@ -92,6 +92,15 @@ namespace MyRM
                 // Sleep forever to simulate timeout
                 Thread.Sleep(System.Threading.Timeout.Infinite);
             }
+
+            try
+            {
+                this.dataStore.Prepare(context);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
             return true;
         }
 

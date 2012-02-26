@@ -26,8 +26,10 @@
 
         // storage members
         private FileStreamWrapper dataFile;
-        private Dictionary<Transaction, StorageContext> contextMap;
         private StoragePageManager pageManager;
+        private StorageTransactionTable preparedContextMap;
+
+        private Dictionary<Transaction, StorageContext> activeContextMap;
 
         // lock manager
         private MyLM lockManager;
@@ -54,9 +56,9 @@
 
         public bool HasActiveTransactions()
         {
-            lock (this.contextMap)
+            lock (this.activeContextMap)
             {
-                return (0 != this.contextMap.Count);
+                return (0 != this.activeContextMap.Count);
             }
         }
 
@@ -83,6 +85,11 @@
 
             // unlock all
             this.lockManager.UnlockAll(context);
+        }
+
+        public void Prepare(Transaction context)
+        {
+            aPrepare(context);
         }
 
         public void Commit(Transaction context)
@@ -242,7 +249,8 @@
         /// </summary>
         protected StorageManager()
         {
-            this.contextMap = new Dictionary<Transaction, StorageContext>();
+            this.activeContextMap = new Dictionary<Transaction, StorageContext>();
+            this.preparedContextMap = new StorageTransactionTable();
             this.pageManager = new StoragePageManager();
 
             this.lockManager = new MyLM();
@@ -310,7 +318,7 @@
             {
                 address = new IndexItem<I>
                 {
-                    Page = -1,
+                    Page = storageContext.PageTable.GetLastLogicalPage(),
                     Record = -1
                 };
             }
@@ -346,6 +354,7 @@
                 {
                     // did not fit on last page so allocate a new page
                     page = new StoragePage();
+                    address.Page = -1;
                     fileAddress = -1;
                     continue;
                 }
@@ -387,14 +396,29 @@
         {
             lock (ManagerLock)
             {
+                List<int> oldStorageContextPages = new List<int>();
                 StorageContext storageContext = null;
-                if (!this.contextMap.TryGetValue(context, out storageContext))
+                if (this.activeContextMap.TryGetValue(context, out storageContext))
                 {
-                    // transaction must already have been commited or aborted
-                    // nothing to do
-                    return;
+                    this.activeContextMap.Remove(context);
                 }
-                this.contextMap.Remove(context);
+                else
+                {
+                    TransItem contextData = this.preparedContextMap.Remove(context);
+                    if (null == contextData)
+                    {
+                        // transaction must already have been commited or aborted
+                        // nothing to do
+                        return;
+                    }
+
+                    oldStorageContextPages = contextData.StoragePageList;
+                    storageContext = contextData.TransactionData;
+                    if (null == storageContext)
+                    {
+                        storageContext = ReadStorageContext(contextData, out oldStorageContextPages);
+                    }
+                }
 
                 DBHdr dbRoot = this.ReadDBRoot();
                 if (null == dbRoot)
@@ -402,8 +426,64 @@
                     throw new Exception();
                 }
 
+                // write the updated prepared transaction list
+                List<int> oldPrepedContextMapPages = null;
+                dbRoot.PrepedTransactions = this.preparedContextMap.WriteTransactionTableData(
+                    this.dataFile, this.pageManager, out oldPrepedContextMapPages);
+
                 // update the page manager
+                this.pageManager.SetFreePages(oldStorageContextPages);
+                this.pageManager.SetFreePages(oldPrepedContextMapPages);
                 this.pageManager.SetFreePages(storageContext.AllocatedPageList);
+                dbRoot.PageManager = this.pageManager.WritePageManagerData(
+                    this.dataFile);
+
+                this.WriteDBRoot(dbRoot);
+                this.dataFile.Flush(true);
+            }
+        }
+
+        private void aPrepare(Transaction context)
+        {
+            lock (ManagerLock)
+            {
+                if (this.preparedContextMap.Contains(context))
+                {
+                    // transaction already prepared for commit
+                    // nothing to do
+                    return;
+                }
+
+                StorageContext storageContext = null;
+                if (!this.activeContextMap.TryGetValue(context, out storageContext))
+                {
+                    // oops ... we don't know anything about this transaction
+                    // something must have gone wrong
+                    throw new Exception();
+                }
+                this.activeContextMap.Remove(context);
+
+                // add the new item to the table
+                TransItem contextData = WriteStorageContext(storageContext);
+                contextData.Transaction = context;
+                contextData.TransactionData = storageContext;
+                this.preparedContextMap.Add(contextData);
+
+                // update the DB root for the free list page and
+                // commited transaction list
+                DBHdr dbRoot = this.ReadDBRoot();
+                if (null == dbRoot)
+                {
+                    throw new InvalidDataException();
+                }
+
+                // write the prepared transactions table
+                List<int> oldContextMapPages = null;
+                dbRoot.PrepedTransactions = this.preparedContextMap.WriteTransactionTableData(
+                    this.dataFile, this.pageManager, out oldContextMapPages);
+
+                // write the page manager
+                this.pageManager.SetFreePages(oldContextMapPages);
                 dbRoot.PageManager = this.pageManager.WritePageManagerData(
                     this.dataFile);
 
@@ -416,24 +496,31 @@
         {
             lock (ManagerLock)
             {
-                StorageContext storageContext = null;
-                if (!this.contextMap.TryGetValue(context, out storageContext))
+                TransItem contextData = this.preparedContextMap.Remove(context);
+                if (null == contextData)
                 {
                     // transaction must already have been commited or aborted
                     // nothing to do
                     return;
                 }
-                this.contextMap.Remove(context);
+
+                List<int> oldStorageContextPages = contextData.StoragePageList;
+                StorageContext storageContext = contextData.TransactionData;
+                if (null == storageContext)
+                {
+                    storageContext = ReadStorageContext(contextData, out oldStorageContextPages);
+                }
 
                 DBHdr dbRoot = this.ReadDBRoot();
                 if (null == dbRoot)
                 {
-                    throw new Exception();
+                    throw new InvalidDataException();
                 }
 
                 // merge page table
                 storageContext.PageTable.ReadPageTableData(
                     this.dataFile, dbRoot.PageTable);
+                storageContext.PageTable.ClearDirtyFlags();
 
                 // merge resource index
                 storageContext.ResourceIndex.ReadIndexData(
@@ -458,10 +545,17 @@
                 dbRoot.ReservationIndex = storageContext.ReservationIndex.WriteIndexData(
                     this.dataFile, this.pageManager, out oldReservationIndexPages);
 
+                // write the updated prepared transaction list
+                List<int> oldPrepedContextMapPages = null;
+                dbRoot.PrepedTransactions = this.preparedContextMap.WriteTransactionTableData(
+                    this.dataFile, this.pageManager, out oldPrepedContextMapPages);
+
                 // update the page manager
+                this.pageManager.SetFreePages(oldStorageContextPages);
                 this.pageManager.SetFreePages(oldPageTablePages);
                 this.pageManager.SetFreePages(oldResourceIndexPages);
                 this.pageManager.SetFreePages(oldReservationIndexPages);
+                this.pageManager.SetFreePages(oldPrepedContextMapPages);
                 this.pageManager.SetFreePages(storageContext.FreedPageList);
                 dbRoot.PageManager = this.pageManager.WritePageManagerData(
                     this.dataFile);
@@ -477,7 +571,7 @@
             {
                 // look for the context in the map
                 StorageContext storageContext = null;
-                if (this.contextMap.TryGetValue(context, out storageContext))
+                if (this.activeContextMap.TryGetValue(context, out storageContext))
                 {
                     return storageContext;
                 }
@@ -506,7 +600,7 @@
                     this.dataFile, dbRoot.ReservationIndex);
 
                 // insert the context into the map
-                this.contextMap.Add(context, storageContext);
+                this.activeContextMap.Add(context, storageContext);
 
                 return storageContext;
             }
@@ -568,6 +662,10 @@
             }
             else
             {
+                // read the prepared transaction data
+                this.preparedContextMap.ReadTransactionTableData(
+                    this.dataFile, dbRoot.PrepedTransactions);
+
                 // read the data manager
                 this.pageManager.ReadPageManagerData(
                     this.dataFile, dbRoot.PageManager);
@@ -595,6 +693,11 @@
             // create reservation index
             StorageIndex<Customer> reservationIndex = new StorageIndex<Customer>();
             dbRoot.ReservationIndex = reservationIndex.WriteIndexData(
+                this.dataFile, this.pageManager, out oldPages);
+
+            // create preped transactions index
+            StorageTransactionTable preparedTransactions = new StorageTransactionTable();
+            dbRoot.PrepedTransactions = preparedTransactions.WriteTransactionTableData(
                 this.dataFile, this.pageManager, out oldPages);
 
             // write the page manager            
@@ -720,6 +823,133 @@
             StoragePage rootPage = new StoragePage();
             rootPage.AddRecord(dbRoot);
             rootPage.WritePageData(this.dataFile, RootPage);
+        }
+
+        #endregion
+
+        #region Prepare For Commit Helper Methods
+
+        private TransItem WriteStorageContext(StorageContext storageContext)
+        {
+            // write the context to disk
+            List<int> usedPages = null;
+            TransItem contextData = new TransItem();
+
+            // write the page table
+            if (null != storageContext.PageTable)
+            {
+                contextData.PageTableStartPage =
+                    storageContext.PageTable.WritePageTableData(
+                        this.dataFile, this.pageManager, out usedPages);
+                usedPages = storageContext.PageTable.GetStoragePages();
+                contextData.StoragePageList.AddRange(usedPages);
+            }
+
+            // write the resource index
+            if (null != storageContext.ResourceIndex)
+            {
+                contextData.ResourceIndexStartPage =
+                    storageContext.ResourceIndex.WriteIndexData(
+                        this.dataFile, this.pageManager, out usedPages);
+                usedPages = storageContext.ResourceIndex.GetStoragePages();
+                contextData.StoragePageList.AddRange(usedPages);
+            }
+
+            // write the reservation index
+            if (null != storageContext.ReservationIndex)
+            {
+                contextData.ReservationIndexStartPage =
+                    storageContext.ReservationIndex.WriteIndexData(
+                        this.dataFile, this.pageManager, out usedPages);
+                usedPages = storageContext.ReservationIndex.GetStoragePages();
+                contextData.StoragePageList.AddRange(usedPages);
+            }
+
+            // write allocated page list
+            if (null != storageContext.AllocatedPageList)
+            {
+                ListWriter<int> writer = new ListWriter<int>();
+                writer.WriteList(
+                    this.dataFile, this.pageManager, storageContext.AllocatedPageList, out usedPages);
+                contextData.AllocatedPageListStartPage = usedPages[0];
+                contextData.StoragePageList.AddRange(usedPages);
+            }
+
+            // write freed page list
+            if (null != storageContext.FreedPageList)
+            {
+                ListWriter<int> writer = new ListWriter<int>();
+                writer.WriteList(
+                    this.dataFile, this.pageManager, storageContext.FreedPageList, out usedPages);
+                contextData.FreedPageListStartPage = usedPages[0];
+                contextData.StoragePageList.AddRange(usedPages);
+            }
+
+            return contextData;
+        }
+
+        private StorageContext ReadStorageContext(TransItem contextData, out List<int> oldStorageContextPages)
+        {
+            // allocate the storage page list
+            oldStorageContextPages = new List<int>();
+
+            // look for the context in the map
+            StorageContext storageContext = new StorageContext();
+
+            // read in the page table
+            if (TransItem.NotStored != contextData.PageTableStartPage)
+            {
+                storageContext.PageTable.ReadPageTableData(
+                    this.dataFile, contextData.PageTableStartPage);
+                oldStorageContextPages.AddRange(
+                    storageContext.PageTable.GetStoragePages());
+            }
+
+            // read in the resource index
+            if (TransItem.NotStored != contextData.ResourceIndexStartPage)
+            {
+                storageContext.ResourceIndex.ReadIndexData(
+                    this.dataFile, contextData.ResourceIndexStartPage);
+                oldStorageContextPages.AddRange(
+                    storageContext.ResourceIndex.GetStoragePages());
+            }
+
+            // read in the reservation index
+            if (TransItem.NotStored != contextData.ReservationIndexStartPage)
+            {
+                storageContext.ReservationIndex.ReadIndexData(
+                    this.dataFile, contextData.ReservationIndexStartPage);
+                oldStorageContextPages.AddRange(
+                    storageContext.ReservationIndex.GetStoragePages());
+            }
+
+            // read in the allocated page list
+            if (TransItem.NotStored != contextData.AllocatedPageListStartPage)
+            {
+                List<int> usedPages = null;
+                List<int> data = null;
+
+                ListReader<int> reader = new ListReader<int>();
+                reader.ReadList(this.dataFile, contextData.AllocatedPageListStartPage, out data, out usedPages);
+
+                storageContext.AllocatedPageList = data;
+                oldStorageContextPages.AddRange(usedPages);
+            }
+
+            // read in the freed page list
+            if (TransItem.NotStored != contextData.FreedPageListStartPage)
+            {
+                List<int> usedPages = null;
+                List<int> data = null;
+
+                ListReader<int> reader = new ListReader<int>();
+                reader.ReadList(this.dataFile, contextData.FreedPageListStartPage, out data, out usedPages);
+
+                storageContext.FreedPageList = data;
+                oldStorageContextPages.AddRange(usedPages);
+            }
+
+            return storageContext;
         }
 
         #endregion

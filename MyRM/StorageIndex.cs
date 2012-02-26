@@ -124,6 +124,11 @@
             return this.indexStoragePages[0];
         }
 
+        public List<int> GetStoragePages()
+        {
+            return this.indexStoragePages;
+        }
+
         #endregion
     }
 }
