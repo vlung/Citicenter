@@ -321,6 +321,46 @@ namespace MyTM
         #region Methods called from RM
 
         /// <summary>
+        /// Called by RM.
+        /// This method notifies TM that it is involved in a given transaction
+        /// TM keeps track of which RM is enlisted with which transaction to do distributed transactions */
+        /// </summary>
+        /// <param name="context"></param>
+        public bool Enlist(TP.Transaction context, string enlistingRM)
+        {
+            // determine if this is an RM we know about
+            this.ValidateRM(enlistingRM);
+
+            lock (this.activeTransactions)
+            {
+                if (!this.activeTransactions.ContainsKey(context))
+                {
+                    // an RM is trying to enlist in a transaction 
+                    // the TM knows nothing about - return false
+                    return false;
+                }
+
+                this.activeTransactions[context].Add(enlistingRM);
+            }
+
+            System.Console.WriteLine(string.Format("Transaction {0} enlisted", context.Id));
+            return true;
+        }
+
+
+        /// <summary>
+        /// Called by RM.
+        /// This method checks the 
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public TransactionStatus GetTransactionStatus(Transaction context)
+        {
+            // TODO: implement fully
+            return TransactionStatus.COMMITED;
+        }
+
+        /// <summary>
         /// Called by RM to register it's URL with the TM.
         /// </summary>
         /// <param name="msg"></param>
@@ -361,36 +401,7 @@ namespace MyTM
             {
                 resourceManagers.Add(newRM);
             }
-        }
-
-        /// <summary>
-        /// Called by RM.
-        /// This method notifies TM that it is involved in a given transaction
-        /// TM keeps track of which RM is enlisted with which transaction to do distributed transactions */
-        /// </summary>
-        /// <param name="context"></param>
-        public bool Enlist(TP.Transaction context, string enlistingRM)
-        {
-            // determine if this is an RM we know about
-            this.ValidateRM(enlistingRM);
-
-            lock (this.activeTransactions)
-            {
-                if (!this.activeTransactions.ContainsKey(context))
-                {
-                    // an RM is trying to enlist in a transaction 
-                    // the TM knows nothing about - return false
-                    return false;
-                }
-
-                this.activeTransactions[context].Add(enlistingRM);
-            }
-
-            System.Console.WriteLine(string.Format("Transaction {0} enlisted", context.Id));
-            return true;
-        }
-
-        
+        }        
 
         #endregion
 

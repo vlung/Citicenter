@@ -524,14 +524,19 @@ namespace MyRM
             // execution loop
             while (GlobalState.Mode == GlobalState.RunMode.Loop)
             {
-                System.Threading.Thread.Sleep(2000);
+                // check on the prepared transactions
+                // in case we missed some data due to timeout
+                this.ProcessPreparedTransactions();
+
+                // sleep for 20 sec
+                System.Threading.Thread.Sleep(20000);
             }
 
             // wait for active transactions loop
             int loopCount = 0;
             while (GlobalState.Mode == GlobalState.RunMode.Wait && loopCount < 15)
             {
-                if (!this.dataStore.HasActiveTransactions())
+                if (0 == this.dataStore.GetActiveTransactionsCount())
                 {
                     break;
                 }
@@ -591,7 +596,42 @@ namespace MyRM
             }
             Console.WriteLine("{0} RM: Transaction Manager retrieved at {1}", this.GetName(), tmUrl);
 
-            // TODO: figure out what to do about the prepared transactions
+            // deal with prepared transactions
+            this.ProcessPreparedTransactions();
+        }
+
+        private void ProcessPreparedTransactions()
+        {
+            List<Transaction> transactionList = this.dataStore.GetPrepedTransactionsList();
+            foreach (Transaction context in transactionList)
+            {
+                TransactionStatus status = this.transactionManager.GetTransactionStatus(context);
+                switch (status)
+                {
+                    case TransactionStatus.ACTIVE:
+                        {
+                            continue;
+                        }
+
+                    case TransactionStatus.COMMITED:
+                        {
+                            this.dataStore.Commit(context);
+                        }
+                        break;
+
+                    case TransactionStatus.ABORTED:
+                        {
+                            this.dataStore.Abort(context);
+                        }
+                        break;
+
+                    default:
+                        {
+                            throw new InvalidOperationException();
+                        }
+                }
+            }
+            Console.WriteLine("{0} RM: Processed {1} prepared transactions", this.GetName(), transactionList.Count);
         }
 
         #region Process Startup

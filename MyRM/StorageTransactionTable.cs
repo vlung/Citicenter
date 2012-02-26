@@ -35,21 +35,14 @@
             this.contextTable.Add(contextData.Transaction, contextData);
         }
 
-        public TransItem Remove(Transaction context)
-        {
-            TransItem item = null;
-            if (!this.contextTable.TryGetValue(context, out item))
-            {
-                return null;
-            }
-            this.contextTable.Remove(context);
-
-            return item;
-        }
-
         public bool Contains(Transaction context)
         {
             return this.contextTable.ContainsKey(context);
+        }
+
+        public List<Transaction> GetTransactionList()
+        {
+            return this.contextTable.Keys.ToList();
         }
 
         public int WriteTransactionTableData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
@@ -90,6 +83,18 @@
 
             // return index of the first page
             return this.contextTableStoragePages[0];
+        }
+
+        public TransItem Remove(Transaction context)
+        {
+            TransItem item = null;
+            if (!this.contextTable.TryGetValue(context, out item))
+            {
+                return null;
+            }
+            this.contextTable.Remove(context);
+
+            return item;
         }
 
         #endregion
