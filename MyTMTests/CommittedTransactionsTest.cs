@@ -74,16 +74,19 @@ namespace MyTMTests
         public void TM_CommittedTransactions_SerializeStringToKeyValueTest1()
         {
             CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
-            string s = "id,rm1,rm2";
+            string s = "id,1,rm1,rm2";
             string key;
             string keyExpected = "id";
-            List<string> value = null; // TODO: Initialize to an appropriate value
-            List<string> valueExpected = new List<string> { "rm1", "rm2" };
+            CommittedTransactions.CommittedTransactionsValue value = null;
+            CommittedTransactions.CommittedTransactionsValue valueExpected = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort,
+                new List<string> { "rm1", "rm2" });
             bool expected = true;
             bool actual;
-            actual = target.SerializeStringToKeyValue(s, out key, out value);
+            actual = target.SerializeFromString(s, out key, out value);
             Assert.AreEqual(keyExpected, key);
-            Assert.IsTrue(valueExpected.Except(value).Count() == 0);
+            Assert.AreEqual(valueExpected.transactionType, value.transactionType);
+            Assert.IsTrue(valueExpected.nackRMList.Except(value.nackRMList).Count() == 0);
             Assert.AreEqual(expected, actual);
         }
 
@@ -92,16 +95,17 @@ namespace MyTMTests
         public void TM_CommittedTransactions_SerializeStringToKeyValueTest2()
         {
             CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
-            string s = "id";
+            string s = "id,1";
             string key;
             string keyExpected = "id";
-            List<string> value = null; // TODO: Initialize to an appropriate value
-            List<string> valueExpected = new List<string>();
+            CommittedTransactions.CommittedTransactionsValue value = null;
+            CommittedTransactions.CommittedTransactionsValue valueExpected = new CommittedTransactions.CommittedTransactionsValue();
             bool expected = true;
             bool actual;
-            actual = target.SerializeStringToKeyValue(s, out key, out value);
+            actual = target.SerializeFromString(s, out key, out value);
             Assert.AreEqual(keyExpected, key);
-            Assert.IsTrue(valueExpected.Except(value).Count() == 0);
+            Assert.AreEqual(value.transactionType, CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort);
+            Assert.IsTrue(valueExpected.nackRMList.Except(value.nackRMList).Count() == 0);
             Assert.AreEqual(expected, actual);
         }
 
@@ -114,10 +118,12 @@ namespace MyTMTests
         {
             CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
             string key = "id";
-            List<string> value = new List<string> { "rm1", "rm2" };
-            string expected = "id,rm1,rm2";
+            CommittedTransactions.CommittedTransactionsValue value = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit,
+                new List<string> { "rm1", "rm2" });
+            string expected = "id,0,rm1,rm2";
             string actual;
-            actual = target.SerializeKeyValueToString(key, value);
+            actual = target.SerializeToString(key, value);
             Assert.AreEqual(expected, actual);
         }
 
@@ -127,10 +133,10 @@ namespace MyTMTests
         {
             CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
             string key = "id";
-            List<string> value = null;
+            CommittedTransactions.CommittedTransactionsValue value = null;
             string expected = null;
             string actual;
-            actual = target.SerializeKeyValueToString(key, value);
+            actual = target.SerializeToString(key, value);
             Assert.AreEqual(expected, actual);
         }
 
@@ -140,10 +146,10 @@ namespace MyTMTests
         {
             CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
             string key = "id";
-            List<string> value = null;
+            CommittedTransactions.CommittedTransactionsValue value = null;
             string expected = "id";
             string actual;
-            actual = target.SerializeKeyValueToString(key, value, true);
+            actual = target.SerializeToString(key, value, true);
             Assert.AreEqual(expected, actual);
         }
 
@@ -155,8 +161,12 @@ namespace MyTMTests
             target.transactionList.Clear();
             target.WriteToFile(); // Write empty list to file to initialize state
 
-            List<string> rmlist1 = new List<string> { "rm1", "rm2" };
-            List<string> rmlist2 = new List<string> { "rm3", "rm4" };
+            CommittedTransactions.CommittedTransactionsValue rmlist1 = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit, 
+                new List<string> { "rm1", "rm2" });
+            CommittedTransactions.CommittedTransactionsValue rmlist2 = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort, 
+                new List<string> { "rm3", "rm4" });
 
             target.UpdateAndFlush("id1", rmlist1);
             target.UpdateAndFlush("id2", rmlist2);
@@ -165,8 +175,10 @@ namespace MyTMTests
 
             Assert.IsTrue(target.transactionList.ContainsKey("id1"));
             Assert.IsTrue(target.transactionList.ContainsKey("id2"));
-            Assert.IsTrue(rmlist1.Except(target.transactionList["id1"]).Count() == 0);
-            Assert.IsTrue(rmlist2.Except(target.transactionList["id2"]).Count() == 0);
+            Assert.IsTrue(target.transactionList["id1"].transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit);
+            Assert.IsTrue(target.transactionList["id2"].transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort);
+            Assert.IsTrue(rmlist1.nackRMList.Except(target.transactionList["id1"].nackRMList).Count() == 0);
+            Assert.IsTrue(rmlist2.nackRMList.Except(target.transactionList["id2"].nackRMList).Count() == 0);
         }
 
         [TestMethod()]
@@ -177,21 +189,25 @@ namespace MyTMTests
             target.transactionList.Clear();
             target.WriteToFile(); // Write empty list to file to initialize state
 
-            List<string> rmlist1 = new List<string> { "rm1", "rm2" };
-            List<string> rmlist2 = new List<string> { "rm3", "rm4" };
+            CommittedTransactions.CommittedTransactionsValue rmlist1 = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit,
+                new List<string> { "rm1", "rm2" });
+            CommittedTransactions.CommittedTransactionsValue rmlist2 = new CommittedTransactions.CommittedTransactionsValue(
+                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort,
+                new List<string> { "rm3", "rm4" });
 
             target.UpdateAndFlush("id1", rmlist1);
             target.UpdateAndFlush("id2", rmlist2);
             // Assume that id2 is now fully committed, the file will have 2 instances of id2
             // after this call
-            target.UpdateAndFlush("id2", new List<string>());
+            target.UpdateAndFlush("id2", null);
 
             target.ReadFromFile();
 
             Assert.IsTrue(target.transactionList.ContainsKey("id1"));
             // Make sure id2 does not exist in the transactionList
             Assert.IsTrue(target.transactionList.ContainsKey("id2") == false);
-            Assert.IsTrue(rmlist1.Except(target.transactionList["id1"]).Count() == 0);
+            Assert.IsTrue(rmlist1.nackRMList.Except(target.transactionList["id1"].nackRMList).Count() == 0);
 
             // Do a full rewrite, id2 should not exist on the file anymore
             target.WriteToFile();
@@ -201,7 +217,7 @@ namespace MyTMTests
             Assert.IsTrue(target.transactionList.ContainsKey("id1"));
             // Make sure id2 does not exist in the transactionList
             Assert.IsTrue(target.transactionList.ContainsKey("id2") == false);
-            Assert.IsTrue(rmlist1.Except(target.transactionList["id1"]).Count() == 0);
+            Assert.IsTrue(rmlist1.nackRMList.Except(target.transactionList["id1"].nackRMList).Count() == 0);
         }
     }
 }
