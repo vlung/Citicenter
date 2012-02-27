@@ -101,7 +101,7 @@ namespace MyTM
     // Done status in case the Done message was lost in transmission.
     public class CommittedTransactions
     {
-        const string CommittedTransactionFilename = "ComXact.txt";
+        const string CommittedTransactionFilename = ".\\ComXact.txt";
 
         public class CommittedTransactionsValue
         {
@@ -137,9 +137,9 @@ namespace MyTM
             return instance;
         }
 
-        private string GetFilename()
+        public static string GetFilename()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), CommittedTransactionFilename);
+            return CommittedTransactionFilename;
         }
 
         private bool SerializeFromString(string s, out string key, out CommittedTransactionsValue value)
@@ -260,7 +260,6 @@ namespace MyTM
 
         private HashSet<RM> resourceManagers;
         private Dictionary<Transaction, List<string>> activeTransactions;
-        private static int RM_TIMEOUT = 5000;
         private CommittedTransactions committedTransactions;
 
         #endregion
@@ -611,23 +610,26 @@ namespace MyTM
         }
 
 
-        protected void recovery()
+        public void recovery()
         {
             Console.Out.WriteLine("Recovery started...");
+            List<string> deleteTransactionList = new List<string>();
+
             foreach (string transactionId in committedTransactions.transactionList.Keys)
             {
                 CommittedTransactions.CommittedTransactionsValue entry = committedTransactions.transactionList[transactionId];
                 Transaction context = new Transaction();
                 context.Id = new Guid(transactionId);
 
-                Console.Out.WriteLine(string.Format("Recovering transaction {0}...", transactionId));
+                Console.Out.WriteLine(string.Format("Recovery: Recovering transaction {0}...", transactionId));
 
-                foreach (string rmName in entry.nackRMList)
+                for (int i = 0; i < entry.nackRMList.Count; ++i)
                 {
+                    string rmName = entry.nackRMList[i];
                     RM rm = GetResourceMananger(rmName);
                     if (rm == null)
                     {
-                        Console.Out.WriteLine(string.Format("\tFailed to find resource manager {0}", rmName));
+                        Console.Out.WriteLine(string.Format("Recovery: Failed to find resource manager {0}", rmName));
                     }
                     else
                     {
@@ -635,27 +637,42 @@ namespace MyTM
 
                         if (entry.transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit)
                         {
-                            Console.Out.Write(string.Format("\tRe-committing resource manager {0}...", rmName));
+                            Console.Out.WriteLine(string.Format("Recovery: Re-committing resource manager {0}...", rmName));
                             exec = new ExecuteActionWithTimeout(rmName, () => rm.Commit(context));
                         }
                         else
                         {
-                            Console.Out.Write(string.Format("\tRe-aborting resource manager {0}...", rmName));
+                            Console.Out.WriteLine(string.Format("Recovery: Re-aborting resource manager {0}...", rmName));
                             exec = new ExecuteActionWithTimeout(rmName, () => rm.Abort(context));
                         }
 
                         try
                         {
                             exec.Run();
-                            Console.Out.WriteLine("Successful!");
-                            committedTransactions.transactionList[transactionId].nackRMList.Remove(rmName);
+                            Console.Out.WriteLine("Recovery: Successful!");
+
+                            // Remove RM from the current transaction since we received the Done message
+                            committedTransactions.transactionList[transactionId].nackRMList.RemoveAt(i);
+                            --i;
                         }
                         catch (TimeoutException)
                         {
-                            System.Console.WriteLine("Failed!");
+                            System.Console.WriteLine("Recovery: Failed!");
                         }
                     }
                 }
+                 
+                // Mark transaction for removal if we received Done from all RMs
+                if (entry.nackRMList.Count == 0)
+                {
+                    deleteTransactionList.Add(transactionId);
+                }
+            }
+
+            // Delete transaction marked for removal from the committed transaction list
+            foreach (string s in deleteTransactionList)
+            {
+                committedTransactions.transactionList.Remove(s);
             }
             // Update file to reflect committed transactions status
             committedTransactions.WriteToFile();
@@ -777,9 +794,24 @@ namespace MyTM
                         , System.Runtime.Remoting.WellKnownObjectMode.Singleton	// instancing mode
                 );
 
+            // activate the object
+            string[] urls = channel.GetUrlsForUri("TM.soap");
+            if (1 != urls.Length)
+            {
+                throw new InvalidOperationException();
+            }
+
+            MyTM transactionManager = (MyTM)System.Activator.GetObject(typeof(TP.TM), urls[0]);
+            if (null == transactionManager)
+            {
+                throw new InvalidProgramException();
+            }
+
+            // Check for transactions that require ACK every 30 seconds
             while (true)
             {
-                System.Threading.Thread.Sleep(100000);
+                System.Threading.Thread.Sleep(30000);
+                transactionManager.recovery();
             }
         }
 

@@ -23,6 +23,10 @@ namespace MyRM
 
         private TP.TM transactionManager = null;
 
+        private PrepareFailure prepareFailure = PrepareFailure.NoFailure;
+        private bool commitFailure = false;
+        private bool abortFailure = false;
+
         #endregion
 
         public MyRM()
@@ -42,14 +46,39 @@ namespace MyRM
             return this.name;
         }
 
+        public void SetPrepareFailure(PrepareFailure failureType)
+        {
+            prepareFailure = failureType;
+        }
+
+        public void SetCommitFailure(bool fail)
+        {
+            commitFailure = fail;
+        }
+
+        public void SetAbortFailure(bool fail)
+        {
+            abortFailure = fail;
+        }
+
         public void Abort(TP.Transaction context)
         {
+            if (abortFailure)
+            {
+                // Sleep forever to simulate timeout
+                Thread.Sleep(System.Threading.Timeout.Infinite);
+            }
             // abort transaction
             this.dataStore.Abort(context);
         }
 
         public void Commit(TP.Transaction context)
         {
+            if (commitFailure)
+            {
+                // Sleep forever to simulate timeout
+                Thread.Sleep(System.Threading.Timeout.Infinite);
+            }
             // commit transaction
             this.dataStore.Commit(context);
         }
@@ -95,9 +124,6 @@ namespace MyRM
             }
             while (0 < retryCount);
         }
-
-        public enum PrepareFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
-        public PrepareFailure prepareFailure = PrepareFailure.NoFailure;
 
         public bool Prepare(TP.Transaction context)
         {

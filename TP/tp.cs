@@ -286,6 +286,8 @@ namespace TP
 
 	}
 
+    public enum PrepareFailure { NoFailure, PrepareReturnsNo, PrepareTimesOut };
+
 	/// <summary>
 	/*   Resource Manager Interface */
 	/// </summary>
@@ -297,6 +299,10 @@ namespace TP
          */
         string GetName();
         void SetName(string name);
+
+        void SetPrepareFailure(PrepareFailure failureType);
+        void SetCommitFailure(bool fail);
+        void SetAbortFailure(bool fail);
         
         /// <summary>
         /// The function aborts the transaction

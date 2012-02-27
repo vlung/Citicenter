@@ -25,6 +25,13 @@ namespace CSEP545
                 File.Delete(file);
                 Console.WriteLine("Deleting RM data file: {0}", file);
             }
+            
+            // delete TM data file
+            if (File.Exists(MyTM.CommittedTransactions.GetFilename()))
+            {
+                File.Delete(MyTM.CommittedTransactions.GetFilename());
+                Console.WriteLine("Deleting {0}", MyTM.CommittedTransactions.GetFilename());
+            }
 
             StartProcesses();
             Pause();
