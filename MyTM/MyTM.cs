@@ -529,8 +529,20 @@ namespace MyTM
         /// <returns></returns>
         public TransactionStatus GetTransactionStatus(Transaction context)
         {
-            // TODO: implement fully
-            return TransactionStatus.COMMITED;
+            if (activeTransactions.ContainsKey(context))
+            {
+                return TransactionStatus.ACTIVE;
+            }
+            else if (committedTransactions.transactionList.ContainsKey(context.Id.ToString()))
+            {
+                if (committedTransactions.transactionList[context.Id.ToString()].transactionType ==
+                    CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit)
+                {
+                    return TransactionStatus.COMMITED;
+                }
+
+            }
+            return TransactionStatus.ABORTED;
         }
 
         /// <summary>
@@ -601,7 +613,53 @@ namespace MyTM
 
         protected void recovery()
         {
-            // TODO Abort/commit/garbage collect
+            Console.Out.WriteLine("Recovery started...");
+            foreach (string transactionId in committedTransactions.transactionList.Keys)
+            {
+                CommittedTransactions.CommittedTransactionsValue entry = committedTransactions.transactionList[transactionId];
+                Transaction context = new Transaction();
+                context.Id = new Guid(transactionId);
+
+                Console.Out.WriteLine(string.Format("Recovering transaction {0}...", transactionId));
+
+                foreach (string rmName in entry.nackRMList)
+                {
+                    RM rm = GetResourceMananger(rmName);
+                    if (rm == null)
+                    {
+                        Console.Out.WriteLine(string.Format("\tFailed to find resource manager {0}", rmName));
+                    }
+                    else
+                    {
+                        ExecuteActionWithTimeout exec;
+
+                        if (entry.transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit)
+                        {
+                            Console.Out.Write(string.Format("\tRe-committing resource manager {0}...", rmName));
+                            exec = new ExecuteActionWithTimeout(rmName, () => rm.Commit(context));
+                        }
+                        else
+                        {
+                            Console.Out.Write(string.Format("\tRe-aborting resource manager {0}...", rmName));
+                            exec = new ExecuteActionWithTimeout(rmName, () => rm.Abort(context));
+                        }
+
+                        try
+                        {
+                            exec.Run();
+                            Console.Out.WriteLine("Successful!");
+                            committedTransactions.transactionList[transactionId].nackRMList.Remove(rmName);
+                        }
+                        catch (TimeoutException)
+                        {
+                            System.Console.WriteLine("Failed!");
+                        }
+                    }
+                }
+            }
+            // Update file to reflect committed transactions status
+            committedTransactions.WriteToFile();
+            Console.Out.WriteLine("Recovery completed.");
         }
 
 
