@@ -63,7 +63,7 @@
         #endregion
 
         [TestMethod]
-        public void TestInitializeDataFile()
+        public void SM_TestInitializeDataFile()
         {
             string dataFile = "TestData1.tpdb";
             if (File.Exists(dataFile))
@@ -76,7 +76,7 @@
         }
 
         [TestMethod]
-        public void TestReadWriteResource()
+        public void SM_TestReadWriteResource()
         {
             string dataFile = "TestData2.tpdb";
             if (File.Exists(dataFile))
@@ -166,7 +166,7 @@
         }
 
         [TestMethod]
-        public void TestDeleteResource()
+        public void SM_TestDeleteResource()
         {
             string dataFile = "TestData22.tpdb";
             if (File.Exists(dataFile))
@@ -219,7 +219,7 @@
         }
 
         [TestMethod]
-        public void TestReadWriteReservations()
+        public void SM_TestReadWriteReservations()
         {
             string dataFile = "TestData3.tpdb";
             if (File.Exists(dataFile))
@@ -298,7 +298,7 @@
         }
 
         [TestMethod]
-        public void TestDeleteReservation()
+        public void SM_TestDeleteReservation()
         {
             string dataFile = "TestData32.tpdb";
             if (File.Exists(dataFile))

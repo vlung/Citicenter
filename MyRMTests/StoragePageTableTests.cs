@@ -65,7 +65,7 @@
         #endregion
 
         [TestMethod]
-        public void TestReadWriteTable()
+        public void SPT_TestReadWriteTable()
         {
             int entryCount = 40;
             int physicalPageDistance = 5;

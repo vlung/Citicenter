@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MyRM;
 using TP;
 
-namespace UnitTestProject
+namespace MyRMTests
 {
     [TestClass]
     public class LM_UnitTest

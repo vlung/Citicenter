@@ -39,7 +39,7 @@
 
         public int AddRecord(object data)
         {
-            byte[] record = this.Serialize(data);
+            byte[] record = StoragePage.Serialize(data);
             if (0 > this.GetAvailableSpace() - this.GetRecordSize(record))
             {
                 throw new InsuffcientSpaceException();
@@ -80,7 +80,7 @@
 
             // encode the data
             //byte[] record = RecordDataEncoder.GetBytes(data);
-            byte[] record = this.Serialize(data);
+            byte[] record = StoragePage.Serialize(data);
             if (0 > this.GetAvailableSpace() + this.GetRecordSize(recordIdx) - this.GetRecordSize(record))
             {
                 throw new InsuffcientSpaceException();
@@ -97,9 +97,7 @@
                 throw new InvalidRecordException();
             }
 
-            //string data = RecordDataEncoder.GetString(
-            //    this.recordList[recordIdx]);
-            object data = this.Deserialize(
+            object data = StoragePage.Deserialize(
                             this.recordList[recordIdx]);
 
             return data;
@@ -241,7 +239,7 @@
             }
         }
 
-        private byte[] Serialize(object data)
+        private static byte[] Serialize(object data)
         {
             if (null == data)
             {
@@ -257,7 +255,7 @@
             }            
         }
 
-        private object Deserialize(byte[] data)
+        private static object Deserialize(byte[] data)
         {
             if (null == data)
             {
