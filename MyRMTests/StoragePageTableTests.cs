@@ -70,7 +70,7 @@
             int entryCount = 40;
             int physicalPageDistance = 5;
 
-            string dataFile = "TestData2.tpdb";
+            string dataFile = "SPT_TestData1.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);

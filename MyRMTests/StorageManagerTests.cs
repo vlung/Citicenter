@@ -65,7 +65,7 @@
         [TestMethod]
         public void SM_TestInitializeDataFile()
         {
-            string dataFile = "TestData1.tpdb";
+            string dataFile = "SM_TestData1.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
@@ -78,7 +78,7 @@
         [TestMethod]
         public void SM_TestReadWriteResource()
         {
-            string dataFile = "TestData2.tpdb";
+            string dataFile = "SM_TestData2.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
@@ -168,7 +168,7 @@
         [TestMethod]
         public void SM_TestDeleteResource()
         {
-            string dataFile = "TestData22.tpdb";
+            string dataFile = "SM_TestData22.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
@@ -221,7 +221,7 @@
         [TestMethod]
         public void SM_TestReadWriteReservations()
         {
-            string dataFile = "TestData3.tpdb";
+            string dataFile = "SM_TestData3.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
@@ -300,7 +300,7 @@
         [TestMethod]
         public void SM_TestDeleteReservation()
         {
-            string dataFile = "TestData32.tpdb";
+            string dataFile = "SM_TestData32.tpdb";
             if (File.Exists(dataFile))
             {
                 File.Delete(dataFile);
