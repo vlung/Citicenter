@@ -11,12 +11,21 @@ namespace CSEP545
     using System.Text;
     using System.Threading;
     using System.Diagnostics;
+    using System.IO;
     using TP;
 
     class MasterTest
     {
         public void ExecuteAll()
         {
+            // delete old data files
+            var dbFiles = Directory.EnumerateFiles(".", "*.tpdb");
+            foreach (string file in dbFiles)
+            {
+                File.Delete(file);
+                Console.WriteLine("Deleting RM data file: {0}", file);
+            }
+
             StartProcesses();
             Pause();
 
