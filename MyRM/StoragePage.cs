@@ -105,6 +105,11 @@
 
         public int WritePageData(FileStreamWrapper stream, int pageIdx)
         {
+            if (null == stream)
+            {
+                throw new ArgumentNullException();
+            }
+
             // get the page data
             byte[] dataBuffer = new byte[PageSize];
             this.WritePageData(dataBuffer);
@@ -124,6 +129,11 @@
 
         public int ReadPageData(FileStreamWrapper stream, int pageIdx)
         {
+            if (null == stream)
+            {
+                throw new ArgumentNullException();
+            }
+
             byte[] dataBuffer = new byte[PageSize];
 
             // read from the file stream

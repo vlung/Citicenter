@@ -6,8 +6,9 @@ namespace MyRMTests
     using System.IO;
     using System.Linq;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
+    
     using MyRM;
-
+    using MyRM.DS;
 
     /// <summary>
     /// Summary description for StoragePageUnitTest
@@ -81,11 +82,9 @@ namespace MyRMTests
         {
             TestData[] testList = 
             {
-                new TestData{ data = "test data  1",   result = 0},
-                new TestData{ data = "test data  2",   result = 1},
+                new TestData{ data = "test data  1",   recordIdx = 0},
+                new TestData{ data = "test data  2",   recordIdx = 1},
             };
-
-            
 
             StoragePage page = new StoragePage();
             AddRecords(page, testList);
@@ -102,7 +101,7 @@ namespace MyRMTests
                 TestData record = new TestData
                 {
                     data = masterRecord,
-                    result = idx,
+                    recordIdx = idx,
                 };
                 noSpacetestList.Add(record);
             }
@@ -121,7 +120,7 @@ namespace MyRMTests
         {
             TestData[] addList = 
             {
-                new TestData{ data = "Record0", result = 0 }
+                new TestData{ data = "Record0", recordIdx = 0 }
             };
 
             TestData[] deleteTestList = 
@@ -142,23 +141,18 @@ namespace MyRMTests
         {
             TestData[] addList = 
             {
-                new TestData{data = "Record0", result = 0},
-                new TestData{data = "Record1", result = 1},
+                new TestData{data = "Record0", recordIdx = 0},
+                new TestData{data = "Record1", recordIdx = 1},
             };
-
             TestData[] readAddList = addList;
-            for (int idx = 0; idx < readAddList.Length; idx++)
-            {
-                readAddList[idx].recordIdx = addList[idx].result;
-            }
 
             TestData[] readWriteTestList =
             {
                 new TestData{data = "Record-1",  recordIdx = -1,                exception = "InvalidRecordException"},
                 new TestData{data = "RecordMax", recordIdx = int.MaxValue,      exception = "InvalidRecordException"},
                 new TestData{data = "RecordLen", recordIdx = addList.Length,    exception = "InvalidRecordException"},
-                new TestData{data = "Record0_2", recordIdx = addList[0].result},
-                new TestData{data = "Record1_2", recordIdx = addList[1].result},
+                new TestData{data = "Record0_2", recordIdx = addList[0].recordIdx},
+                new TestData{data = "Record1_2", recordIdx = addList[1].recordIdx},
                 
             };
 
@@ -176,6 +170,47 @@ namespace MyRMTests
             ReadRecords(page, readWriteList);
         }
 
+        [TestMethod]
+        public void SP_TestReadWritePage()
+        {
+            string dataFile = "SP_TestData1.tpdb";
+            if (File.Exists(dataFile))
+            {
+                File.Delete(dataFile);
+            }
+
+            TestData[] pageData =
+            {
+                new TestData{data = "Record_0", recordIdx = 0},
+                new TestData{data = "Record_1", recordIdx = 1},
+                new TestData{data = "Record_2", recordIdx = 2}
+            };
+
+            int pageIndex = int.MinValue;
+
+            // write the page
+            using (FileStreamWrapper dataFileStream = FileStreamWrapper.CreateObject(dataFile))
+            {
+                // populate the page with some data
+                StoragePage page = new StoragePage();
+                AddRecords(page, pageData);
+
+                // write the file to disk
+                pageIndex = page.WritePageData(dataFileStream, -1);                
+            }
+
+            // read the page
+            using (FileStreamWrapper dataFileStream = FileStreamWrapper.CreateObject(dataFile))
+            {
+                // read page from file
+                StoragePage page = new StoragePage();
+                page.ReadPageData(dataFileStream, pageIndex);
+
+                // validate the page data
+                ReadRecords(page, pageData);
+            }
+        }
+
         #region Private Helper Methods
 
         private struct TestData
@@ -183,13 +218,12 @@ namespace MyRMTests
             public string data;
             public int recordIdx;
 
-            public int result;
             public string exception;
 
             public override string ToString()
             {
                 return string.Format(
-                    "{0}|{1}|{2}|{3}", data, recordIdx, result, exception);
+                    "{0}|{1}|{2}", data, recordIdx, exception);
             }
         }
 
@@ -200,7 +234,7 @@ namespace MyRMTests
                 try
                 {
                     int result = page.AddRecord(test.data);
-                    Assert.AreEqual(test.result, result,
+                    Assert.AreEqual(test.recordIdx, result,
                         string.Format("Return value did not match. Test Data=[{0}]", test.ToString()));
                 }
                 catch (Exception e)
