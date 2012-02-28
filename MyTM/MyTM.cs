@@ -188,63 +188,72 @@ namespace MyTM
 
         public void UpdateAndFlush(string transactionId, CommittedTransactionsValue value)
         {
-            // Update transaction list
-            if (value == null || value.nackRMList == null || value.nackRMList.Count == 0)
+            lock (this)
             {
-                transactionList.Remove(transactionId);
-            }
-            else
-            {
-                transactionList[transactionId] = value;
-            }
+                // Update transaction list
+                if (value == null || value.nackRMList == null || value.nackRMList.Count == 0)
+                {
+                    transactionList.Remove(transactionId);
+                }
+                else
+                {
+                    transactionList[transactionId] = value;
+                }
 
-            // Append transaction information to file. If this is an existing transaction, it may
-            // cause the file to have multiple occurrences of the same transaction ID. We will take
-            // care of this in ReadFromFile() to make sure the last entry wins, this will avoid the need
-            // to rewrite the whole file every time an existing transaction is updated.
-            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
-            {
-                sw.WriteLine(SerializeToString(transactionId, value, true));
+                // Append transaction information to file. If this is an existing transaction, it may
+                // cause the file to have multiple occurrences of the same transaction ID. We will take
+                // care of this in ReadFromFile() to make sure the last entry wins, this will avoid the need
+                // to rewrite the whole file every time an existing transaction is updated.
+                using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
+                {
+                    sw.WriteLine(SerializeToString(transactionId, value, true));
+                }
             }
         }
 
         public void ReadFromFile()
-        {         
-            transactionList.Clear();
-            try
+        {
+            lock (this)
             {
-                string[] content = File.ReadAllLines(GetFilename());
-                foreach (string s in content)
+                transactionList.Clear();
+                try
                 {
-                    string key;
-                    CommittedTransactionsValue value;
-
-                    if (SerializeFromString(s, out key, out value))
+                    string[] content = File.ReadAllLines(GetFilename());
+                    foreach (string s in content)
                     {
-                        if (value != null && value.nackRMList.Count > 0)
+                        string key;
+                        CommittedTransactionsValue value;
+
+                        if (SerializeFromString(s, out key, out value))
                         {
-                            transactionList[key] = value;
-                        }
-                        else
-                        {
-                            transactionList.Remove(key);
+                            if (value != null && value.nackRMList.Count > 0)
+                            {
+                                transactionList[key] = value;
+                            }
+                            else
+                            {
+                                transactionList.Remove(key);
+                            }
                         }
                     }
                 }
-            }
-            catch(Exception)
-            {
-                transactionList.Clear();
+                catch (Exception)
+                {
+                    transactionList.Clear();
+                }
             }
         }
 
         public void WriteToFile()
         {
-            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), false))
+            lock (this)
             {
-                foreach (string key in transactionList.Keys)
+                using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), false))
                 {
-                    sw.WriteLine(SerializeToString(key, transactionList[key]));
+                    foreach (string key in transactionList.Keys)
+                    {
+                        sw.WriteLine(SerializeToString(key, transactionList[key]));
+                    }
                 }
             }
         }
@@ -352,10 +361,16 @@ namespace MyTM
                 }
                 execPrepareList.Clear();
 
+                // Prepare to write the list of RM to committed transaction list in case of recovery
+                CommittedTransactions.CommittedTransactionsValue committedTransactionValue = new CommittedTransactions.CommittedTransactionsValue(
+                    CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit,
+                    rmNameList);
+
                 // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
                 if (allPrepared)
                 {
-                    CommittedTransactions.CommittedTransactionsValue committedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
+                    // Write transaction id and list of RM to committed transaction list before committing the transaction
+                    committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
 
                     System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
                     for (int i = 0; i < rmList.Count; ++i)
@@ -364,28 +379,31 @@ namespace MyTM
                         try
                         {
                             exec.Run();
+                            // Remove RM from list of RM when we received Done
+                            committedTransactionValue.nackRMList.Remove(rmList[i].GetName());
                         }
                         catch (TimeoutException)
                         {
-                            committedTransactionValue.nackRMList.Add(rmList[i].GetName());
                             System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to commit...", context.Id, rmList[i].GetName()));
                         }
                     }
- 
+
+                    // Write transaction id and list of unacknowledged RMs to the committed transaction list.
+                    committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
                     if (committedTransactionValue.nackRMList.Count == 0)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
                     }
                     else
                     {
-                        committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
                         System.Console.WriteLine(string.Format("Transaction {0} commited with some timeouts", context.Id));
                     }
                 }
                 else
                 {
-                    CommittedTransactions.CommittedTransactionsValue abortedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
-                    abortedTransactionValue.transactionType = CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort;
+                    // Write transaction id and list of RM to committed transaction list before aborting the transaction
+                    committedTransactionValue.transactionType = CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort;
+                    committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
 
                     System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
                     for (int i = 0; i < rmList.Count; ++i)
@@ -394,21 +412,23 @@ namespace MyTM
                         try
                         {
                             exec.Run();
+                            // Remove RM from list of RM when we received Done
+                            committedTransactionValue.nackRMList.Remove(rmList[i].GetName());
                         }
                         catch (TimeoutException)
                         {
-                            abortedTransactionValue.nackRMList.Add(rmList[i].GetName());
                             System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
                         }
                     }
 
-                    if (abortedTransactionValue.nackRMList.Count == 0)
+                    // Write transaction id and list of unacknowledged RMs to the committed transaction list.
+                    committedTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
+                    if (committedTransactionValue.nackRMList.Count == 0)
                     {
                         System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                     }
                     else
                     {
-                        committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                         System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
                     }
                 }
@@ -440,8 +460,11 @@ namespace MyTM
                     }
                 }
 
-                CommittedTransactions.CommittedTransactionsValue abortedTransactionValue = new CommittedTransactions.CommittedTransactionsValue();
-                abortedTransactionValue.transactionType = CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort;
+                // Write transaction id and list of RM to committed transaction list before aborting the transaction
+                CommittedTransactions.CommittedTransactionsValue abortedTransactionValue = new CommittedTransactions.CommittedTransactionsValue(
+                    CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort,
+                    rmNameList);
+                committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
 
                 System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
                 for (int i = 0; i < rmList.Count; ++i)
@@ -450,21 +473,23 @@ namespace MyTM
                     try
                     {
                         exec.Run();
+                        // Remove RM from list of RM when we received Done
+                        abortedTransactionValue.nackRMList.Remove(rmList[i].GetName());
                     }
                     catch (TimeoutException)
                     {
-                        abortedTransactionValue.nackRMList.Add(rmList[i].GetName());
                         System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
                     }
                 }
 
+                // Write transaction id and list of unacknowledged RMs to the committed transaction list.
+                committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                 if (abortedTransactionValue.nackRMList.Count == 0)
                 {
                     System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
                 }
                 else
                 {
-                    committedTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                     System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
                 }
             }
