@@ -89,12 +89,10 @@ namespace MyRM
         /// <param name="context"></param>
         public void Enlist(Transaction context)
         {
-            while (GlobalState.Mode != GlobalState.RunMode.Loop)
+            if (GlobalState.Mode != GlobalState.RunMode.Loop)
             {
-                Console.WriteLine("Waiting for initialization...");
-                Thread.Sleep(5000);
                 // we are not intialized yet so just abort
-                //throw new AbortTransationException();
+                throw new AbortTransationException();
             }
 
             if (null == this.transactionManager)
