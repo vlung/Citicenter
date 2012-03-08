@@ -276,6 +276,7 @@
             }
         }
 
+        // reads a resource or a reservation data item
         protected virtual bool Read<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, bool lockPage , out R data)
         {
             // look for the resource in the index
@@ -306,6 +307,7 @@
             return true;
         }
 
+        // writes a resource or reservation data item
         protected virtual bool Write<I, R>(Transaction context, StorageContext storageContext, StorageIndex<I> index, I rID, R data)
         {
             // look for the resource in the index
@@ -396,6 +398,7 @@
 
         #region Atomic Methods
 
+        // implements the abort of a transaction
         private void aAbort(Transaction context)
         {
             lock (ManagerLock)
@@ -404,6 +407,7 @@
                 StorageContext storageContext = null;
                 if (this.activeContextMap.TryGetValue(context, out storageContext))
                 {
+                    // found transaction in active transactions list
                     this.activeContextMap.Remove(context);
                 }
                 else
@@ -416,6 +420,7 @@
                         return;
                     }
 
+                    // found transaction in prepared transaction list
                     oldStorageContextPages = contextData.StoragePageList;
                     storageContext = contextData.TransactionData;
                     if (null == storageContext)
@@ -447,6 +452,7 @@
             }
         }
 
+        // commits a transaction
         private void aCommit(Transaction context)
         {
             lock (ManagerLock)
@@ -466,6 +472,7 @@
                     storageContext = ReadStorageContext(contextData, out oldStorageContextPages);
                 }
 
+                // read in the DB root
                 DBHdr dbRoot = this.ReadDBRoot();
                 if (null == dbRoot)
                 {
@@ -579,6 +586,7 @@
             }
         }
 
+        // prepares a transaction for commit by serialializing the data to disk
         private void aPrepare(Transaction context)
         {
             lock (ManagerLock)
@@ -628,6 +636,7 @@
             }
         }
 
+        // reads a page from persistent storage
         private void aReadPageData(StoragePage page, int pageIndex)
         {
             lock(ManagerLock)
@@ -636,6 +645,7 @@
             }
         }
 
+        // writes a page to persistent storage and does book-keeping for allocated and freed pages
         private int aWritePageData(StoragePage page, StorageContext storageContext, int fileAddress)
         {
             lock (ManagerLock)

@@ -28,6 +28,14 @@ namespace MyRM
             return (this.pageTable.Count - 1);
         }
 
+        /// <summary>
+        /// Gets the physical page index for a logical page.
+        /// Returns the physical page index of the "last" (highes index) logical
+        /// page if the logical page index is less than 0  or greater than 
+        /// the "last".
+        /// </summary>
+        /// <param name="logicalPage">logical page index</param>
+        /// <returns>physical page index</returns>
         public int GetPhysicalPage(int logicalPage)
         {
             if (logicalPage >= 0
@@ -44,6 +52,11 @@ namespace MyRM
             return -1;
         }
 
+        /// <summary>
+        /// Sets the physical page index for the next logical page in the sequence.
+        /// </summary>
+        /// <param name="physicalPage">physical page index</param>
+        /// <returns>logical page index</returns>
         public int SetLogicalPage(int physicalPage)
         {
             PageTableItem item = new PageTableItem()
@@ -56,6 +69,11 @@ namespace MyRM
             return this.pageTable.IndexOf(item);
         }
 
+        /// <summary>
+        /// Updates the physical page address for a logical page.
+        /// </summary>
+        /// <param name="logicalPage">logical page index</param>
+        /// <param name="physicalPage">new physical page index</param>
         public void UpdatePage(int logicalPage, int physicalPage)
         {
             if (0 > logicalPage
@@ -68,6 +86,10 @@ namespace MyRM
             this.pageTable[logicalPage].IsDirty = true;
         }
 
+        /// <summary>
+        /// Clears the "dirty" flag from all entries to ensure that future reads from
+        /// persitent storage over-write all entries.
+        /// </summary>
         public void ClearDirtyFlags()
         {
             // mark all items as clean
@@ -77,6 +99,13 @@ namespace MyRM
             }
         }
 
+        /// <summary>
+        /// Writes the page table item to persitent storage as a list of items.
+        /// </summary>
+        /// <param name="stream">data file</param>
+        /// <param name="manager">object that keeps track of free pages in the file</param>
+        /// <param name="freedPages">list of pages to be freed when transaction commits</param>
+        /// <returns>index of the first page storing the list</returns>
         public int WritePageTableData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
@@ -93,6 +122,16 @@ namespace MyRM
             return this.pageTableStoragePages[0];
         }
 
+        /// <summary>
+        /// Reads the list of page table items whose head is stored at the page index provided.
+        /// The data read from persistent storage is merges with the data already in memory
+        /// using the following protocol:
+        ///     if the in memory data has the "IsDirty" flag set then we keep the in memory data
+        ///     else we over-write the in-memory data with the data from disk
+        /// </summary>
+        /// <param name="stream">data file to read from</param>
+        /// <param name="pageIdx">index of the first physical page storing the list</param>
+        /// <returns>returns the index of the first physical page we read data from</returns>
         public int ReadPageTableData(FileStreamWrapper stream, int pageIdx)
         {
             List<PageTableItem> itemList = null;
@@ -127,6 +166,10 @@ namespace MyRM
             return this.pageTableStoragePages[0];
         }
 
+        /// <summary>
+        /// Gets the list of pages that store the data in persistent storage.
+        /// </summary>
+        /// <returns>list of physical page indeces</returns>
         public List<int> GetStoragePages()
         {
             return this.pageTableStoragePages;

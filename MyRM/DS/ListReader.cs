@@ -25,6 +25,15 @@ namespace MyRM.DS
             this.pageList = new List<int>();
         }
 
+        /// <summary>
+        /// Reads a list of items from persistent storage. The list is written as a chain of pages,
+        /// where the current page stores a pointer to the page storing the next range of items.
+        /// The items can be any "serializable" C# type.
+        /// </summary>
+        /// <param name="stream">data file to read from</param>
+        /// <param name="pageIdx">index of the page storing the head of the list</param>
+        /// <param name="list">list of items read</param>
+        /// <param name="pages">list of physical pages we read from</param>
         public void ReadList(FileStreamWrapper stream, int pageIdx, out List<T> list, out List<int> pages)
         {
             // read pages one by one

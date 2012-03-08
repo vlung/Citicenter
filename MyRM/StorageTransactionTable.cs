@@ -25,6 +25,10 @@
             this.contextTableStoragePages = new List<int>();
         }
 
+        /// <summary>
+        /// Adds a transaction data to the list.
+        /// </summary>
+        /// <param name="contextData">transaction data</param>
         public void Add(TransItem contextData)
         {
             if (this.contextTable.ContainsKey(contextData.Transaction))
@@ -35,16 +39,33 @@
             this.contextTable.Add(contextData.Transaction, contextData);
         }
 
+        /// <summary>
+        /// Retruns true if the transaction is in the list.
+        /// </summary>
+        /// <param name="context">transaction id</param>
+        /// <returns>true or false.</returns>
         public bool Contains(Transaction context)
         {
             return this.contextTable.ContainsKey(context);
         }
 
+        /// <summary>
+        /// Gets the entire list of transactions. Called during startup to
+        /// complete pre-pared transactions.
+        /// </summary>
+        /// <returns></returns>
         public List<Transaction> GetTransactionList()
         {
             return this.contextTable.Keys.ToList();
         }
 
+        /// <summary>
+        /// Writes the data item to persitent storage as a list of items.
+        /// </summary>
+        /// <param name="stream">data file to write to</param>
+        /// <param name="manager">object that keeps track of free pages in the file</param>
+        /// <param name="freedPages">list of pages to be freed when transaction commits</param>
+        /// <returns>index of the first page storing the list</returns>
         public int WriteTransactionTableData(FileStreamWrapper stream, StoragePageManager manager, out List<int> freedPages)
         {
             List<int> pageIdxList = null;
@@ -61,6 +82,12 @@
             return this.contextTableStoragePages[0];
         }
 
+        /// <summary>
+        /// Reads the list of data items whose head is stored at the page index provided.
+        /// </summary>
+        /// <param name="stream">data file to read from</param>
+        /// <param name="pageIdx">index of the first physical page storing the list</param>
+        /// <returns>returns the index of the first physical page we read data from</returns>
         public int ReadTransactionTableData(FileStreamWrapper stream, int pageIdx)
         {
             List<TransItem> itemList = null;
@@ -85,6 +112,11 @@
             return this.contextTableStoragePages[0];
         }
 
+        /// <summary>
+        /// Removes the transaction data from the list.
+        /// </summary>
+        /// <param name="context">transaction id</param>
+        /// <returns>the item we just removed from the list</returns>
         public TransItem Remove(Transaction context)
         {
             TransItem item = null;

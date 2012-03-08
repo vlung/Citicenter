@@ -26,6 +26,14 @@ using System.Text;
             this.pageIdxList = new List<int>();
         }
 
+        /// <summary>
+        /// Writes a list of items to persistent storage using a "chain" format, where each
+        /// page stores a "pointer" to the next page containing the following range of elements.
+        /// </summary>
+        /// <param name="stream">data file to write to</param>
+        /// <param name="freeSpaceMgr">object that keeps track of available pages in the file</param>
+        /// <param name="list">list of items to write</param>
+        /// <param name="pages">list of pages we wrote to</param>
         public void WriteList(FileStreamWrapper stream, StoragePageManager freeSpaceMgr, List<T> list, out List<int> pages)
         {
             // create the pages

@@ -30,6 +30,14 @@
             this.writingSelf = false;
         }
 
+        /// <summary>
+        /// Retrieves the next free page to write to.
+        /// Since we call this method when we write this list itself to persistent storage
+        /// we insert a barrier value to prevent us over-writing pages that are just being freed by the
+        /// transaction being currently commited. This prevents us from destroying the store if
+        /// writing the DBHeader fails.
+        /// </summary>
+        /// <returns>physical page index</returns>
         public int GetFreePage()
         {
             int freePage = -1;
@@ -66,6 +74,10 @@
             return freePage;
         }
 
+        /// <summary>
+        /// Adds the page index to the list of tracked free pages.
+        /// </summary>
+        /// <param name="page"></param>
         public void SetFreePage(int page)
         {
             lock (this.freePages)
@@ -80,6 +92,10 @@
             }
         }
 
+        /// <summary>
+        /// Adds the page indexes to the list of tracked free pages.
+        /// </summary>
+        /// <param name="pages">list of physical page indeces</param>
         public void SetFreePages(List<int> pages)
         {
             foreach (var page in pages)
@@ -88,6 +104,13 @@
             }
         }
 
+        /// <summary>
+        /// Writes the data item to persitent storage as a list of items.
+        /// </summary>
+        /// <param name="stream">data file to write to</param>
+        /// <param name="manager">object that keeps track of free pages in the file</param>
+        /// <param name="freedPages">list of pages to be freed when transaction commits</param>
+        /// <returns>index of the first page storing the list</returns>
         public int WritePageManagerData(FileStreamWrapper stream)
         {
             lock (this.freePages)
@@ -108,6 +131,12 @@
             return this.managerStoragePages[0];
         }
 
+        /// <summary>
+        /// Reads the list of data items whose head is stored at the page index provided.
+        /// </summary>
+        /// <param name="stream">data file to read from</param>
+        /// <param name="pageIdx">index of the first physical page storing the list</param>
+        /// <returns>returns the index of the first physical page we read data from</returns>
         public int ReadPageManagerData(FileStreamWrapper stream, int pageIdx)
         {
             List<int> itemList = null;
