@@ -465,8 +465,6 @@ namespace MyTM
                         try
                         {
                             exec.Run();
-                            // Remove RM from list of RM when we received Done (ie no timeout has occurred)
-                            committedTransactionValue.nackRMList.Remove(rmList[i].GetName());
                         }
                         catch (TimeoutException)
                         {
@@ -474,8 +472,11 @@ namespace MyTM
                         }
                     }
 
-                    // Write transaction id and list of unacknowledged RMs to the outstanding transaction list.
+                    // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
+                    // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
+                    // This will cancel out the entry we logged earlier about the transaction and all its RMs.
                     // Flush the entry to the outstanding transaction file immediately
+                    committedTransactionValue.nackRMList.Clear();
                     OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
                     if (committedTransactionValue.nackRMList.Count == 0)
                     {
@@ -528,8 +529,6 @@ namespace MyTM
                     try
                     {
                         exec.Run();
-                        // Remove RM from list of RM when we received Done
-                        abortedTransactionValue.nackRMList.Remove(rmList[i].GetName());
                     }
                     catch (TimeoutException)
                     {
@@ -537,7 +536,11 @@ namespace MyTM
                     }
                 }
 
-                // Write transaction id and list of unacknowledged RMs to the outstanding transaction list.
+                // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
+                // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
+                // This will cancel out the entry we logged earlier about the transaction and all its RMs.
+                // Flush the entry to the outstanding transaction file immediately
+                abortedTransactionValue.nackRMList.Clear();
                 OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
                 if (abortedTransactionValue.nackRMList.Count == 0)
                 {
@@ -749,9 +752,12 @@ namespace MyTM
                         }
                     }
                 }
-                 
-                // Mark transaction for removal if we received Done from all RMs
-                if (entry.nackRMList.Count == 0)
+                
+                // PRESUMED ABORT: If the transaction is Abort, we don't care about the Done message and we forget about
+                // the transaction immediately.
+                // For commit transactions, mark transaction for removal if we received Done from all RMs
+                if (entry.transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort ||
+                    entry.nackRMList.Count == 0)
                 {
                     deleteTransactionList.Add(transactionId);
                 }
