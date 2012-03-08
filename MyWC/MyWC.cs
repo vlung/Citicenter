@@ -61,7 +61,7 @@ namespace MyWC
             return true;
         }
 
-
+        // This function cancels an itinerary
         public bool CancelItinerary(Customer customer)
         {
             Transaction xid = new Transaction();
@@ -70,7 +70,6 @@ namespace MyWC
                 Flights.UnReserve(xid, customer);
                 Cars.UnReserve(xid, customer);
                 Rooms.UnReserve(xid, customer);
-
                 Commit(xid);
             }
             catch (Exception e)
@@ -81,7 +80,7 @@ namespace MyWC
             return true;
         }
 
-
+        // Query the itinerary price for the given customer
         public int QueryItineraryPrice(Transaction context, Customer customer)
         {
             int bill = Flights.QueryReservedPrice(context, customer);
@@ -90,7 +89,7 @@ namespace MyWC
             return bill;
         }
 
-
+        // Query the itinerary for the given customer
         public String QueryItinerary(Transaction context, Customer customer)
         {
             StringBuilder buf = new StringBuilder(1024);

@@ -23,6 +23,8 @@ namespace MyRM
 
         private TP.TM transactionManager = null;
 
+        // Members indicating whether to simulate failure for
+        // prepare, commit and abort operations.
         private PrepareFailure prepareFailure = PrepareFailure.NoFailure;
         private bool commitFailure = false;
         private bool abortFailure = false;
@@ -46,37 +48,42 @@ namespace MyRM
             return this.name;
         }
 
+        // Set the failure type for the Prepare operation
         public void SetPrepareFailure(PrepareFailure failureType)
         {
             prepareFailure = failureType;
         }
 
+        // Set whether the commit operation should fail (ie hang) or not
         public void SetCommitFailure(bool fail)
         {
             commitFailure = fail;
         }
 
+        // Set whether the abort operation should fail (ie hang) or not
         public void SetAbortFailure(bool fail)
         {
             abortFailure = fail;
         }
 
+        // Abort the specified transaction
         public void Abort(TP.Transaction context)
         {
             if (abortFailure)
             {
-                // Sleep forever to simulate timeout
+                // Sleep forever if simulate failure flag is set
                 Thread.Sleep(System.Threading.Timeout.Infinite);
             }
             // abort transaction
             this.dataStore.Abort(context);
         }
 
+        // Commit the specified transaction
         public void Commit(TP.Transaction context)
         {
             if (commitFailure)
             {
-                // Sleep forever to simulate timeout
+                // Sleep forever if simulate failure flag is set
                 Thread.Sleep(System.Threading.Timeout.Infinite);
             }
             // commit transaction
@@ -101,7 +108,7 @@ namespace MyRM
                 return;
             }
 
-            // enlist with 
+            // Enlist with TM and retry for 5 times in case of failure
             int retryCount = 5;
             do
             {
@@ -125,18 +132,21 @@ namespace MyRM
             while (0 < retryCount);
         }
 
+        // Prepare the specified transaction
         public bool Prepare(TP.Transaction context)
         {
+            // Returns false if failure mode is set to No
             if (prepareFailure == PrepareFailure.PrepareReturnsNo)
             {
                 return false;
             }
+            // Sleep forever to simulate timeout if failure mode is set to TimesOut
             else if (prepareFailure == PrepareFailure.PrepareTimesOut)
             {
-                // Sleep forever to simulate timeout
                 Thread.Sleep(System.Threading.Timeout.Infinite);
             }
 
+            // Otherwise, prepare the transaction and return the result - Prepared(true) or No(false)
             try
             {
                 this.dataStore.Prepare(context);
@@ -630,6 +640,7 @@ namespace MyRM
             this.ProcessPreparedTransactions();
         }
 
+        // This function goes through all prepared transaction and asks TM for its decision
         private void ProcessPreparedTransactions()
         {
             if (null == this.transactionManager)
@@ -638,6 +649,7 @@ namespace MyRM
                 return;
             }
 
+            // Get the list of prepared transaction
             List<Transaction> transactionList = this.dataStore.GetPrepedTransactionsList();
             for(int idx = 0; idx < transactionList.Count; idx++)
             {
@@ -647,23 +659,26 @@ namespace MyRM
                     continue;
                 }
 
+                // Get the decision for the current transaction
                 TransactionStatus status = this.transactionManager.GetTransactionStatus(context);
                 switch (status)
                 {
+                    // If the transaction is still active, wait a bit for the transaction to be resolved.
                     case TransactionStatus.ACTIVE:
                         {
-                            // we need to wait for this transaction's status to be resolved
                             idx--;
                             System.Threading.Thread.Sleep(500);
                         }
                         break;
 
+                    // If the decision is Committed, commit the transaction immediately
                     case TransactionStatus.COMMITED:
                         {
                             this.dataStore.Commit(context);
                         }
                         break;
 
+                    // If the decision is Aborted, abort the transaction immediately
                     case TransactionStatus.ABORTED:
                         {
                             this.dataStore.Abort(context);
