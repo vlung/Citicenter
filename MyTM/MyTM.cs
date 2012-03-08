@@ -592,7 +592,11 @@ namespace MyTM
                     return false;
                 }
 
-                this.activeTransactions[context].Add(enlistingRM);
+                // Add the RM to the active transaction only if it has not been added already
+                if (!this.activeTransactions[context].Contains(enlistingRM))
+                {
+                    this.activeTransactions[context].Add(enlistingRM);
+                }
             }
 
             System.Console.WriteLine(string.Format("Transaction {0} enlisted", context.Id));
@@ -899,6 +903,7 @@ namespace MyTM
             // as well as doing garbage collection on the outstanding transaction file
             while (true)
             {
+                Console.WriteLine("Recovery will run in 30 seconds...");
                 System.Threading.Thread.Sleep(30000);
                 transactionManager.recovery();
             }
