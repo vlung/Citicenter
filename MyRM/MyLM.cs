@@ -204,6 +204,8 @@ namespace MyRM
                 }
             }
 
+            // Checks whether the lock request will potentially downgrade the lock for the specified transaction.
+            // Returns true if the request is read lock and specified transaction already has a write lock on the resource
             public bool DownGradedLockRequest(TP.Transaction context, LockMode request)
             {
                 System.Collections.Hashtable transactionList = this.transactions[(int)LockMode.Write];
@@ -215,6 +217,8 @@ namespace MyRM
                 return false;
             }
 
+            // Upgrade a read lock to a write lock for the specified transaction.
+            // Returns true if the conversion is successful, returns false otherwise.
             public bool UpgradeLockRequest(TP.Transaction context, LockMode request)
             {
                 // There is no need to upgrade the lock if it is not a write request or if the resource is not locked
@@ -246,9 +250,11 @@ namespace MyRM
                 // Deal with the case when the resource is read-locked
                 else
                 {
+                    // Get the list of transactions that hold a read lock on the resource
                     System.Collections.Hashtable readTransactionList = this.transactions[(int)LockMode.Read];
 
-                    // Assume that the write transaction list is not null when the current lock mode is Write
+                    // Assume that the read transaction list is not null when the current lock mode is Write
+                    // since the transaction should already have a read lock on the resource.
                     if (readTransactionList == null)
                     {
                         throw new System.ApplicationException("Read transaction list is null even when lock mode is read");
@@ -428,12 +434,13 @@ namespace MyRM
             System.Console.WriteLine("----Unlocked all for Tx: {0}--------", context.Id);
         }
 
-
+        // Set the timeout limit for deadlock detection
         public void setDeadlockTimeout(long ms)
         {
             deadlockTimeout = ms;
         }
 
+        // Get the timeout limit for deadlock detection
         public long getDeadlockTimeout()
         {
             return deadlockTimeout;

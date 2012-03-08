@@ -4,16 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MyTMTests
+namespace MyRMTests
 {
-    
-    
     /// <summary>
-    ///This is a test class for CommittedTransactionsTest and is intended
-    ///to contain all CommittedTransactionsTest Unit Tests
+    ///This is a test class for OutstandingTransactionsTest and is intended
+    ///to contain all OutstandingTransactionsTest Unit Tests
     ///</summary>
     [TestClass()]
-    public class CommittedTransactionsTest
+    public class OutstandingTransactionsTest
     {
 
 
@@ -71,15 +69,15 @@ namespace MyTMTests
         ///</summary>
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_SerializeStringToKeyValueTest1()
+        public void TM_OutstandingTransactions_SerializeStringToKeyValueTest1()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             string s = "id,1,rm1,rm2";
             string key;
             string keyExpected = "id";
-            CommittedTransactions.CommittedTransactionsValue value = null;
-            CommittedTransactions.CommittedTransactionsValue valueExpected = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort,
+            OutstandingTransactions.OutstandingTransactionsValue value = null;
+            OutstandingTransactions.OutstandingTransactionsValue valueExpected = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort,
                 new List<string> { "rm1", "rm2" });
             bool expected = true;
             bool actual;
@@ -92,19 +90,19 @@ namespace MyTMTests
 
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_SerializeStringToKeyValueTest2()
+        public void TM_OutstandingTransactions_SerializeStringToKeyValueTest2()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             string s = "id,1";
             string key;
             string keyExpected = "id";
-            CommittedTransactions.CommittedTransactionsValue value = null;
-            CommittedTransactions.CommittedTransactionsValue valueExpected = new CommittedTransactions.CommittedTransactionsValue();
+            OutstandingTransactions.OutstandingTransactionsValue value = null;
+            OutstandingTransactions.OutstandingTransactionsValue valueExpected = new OutstandingTransactions.OutstandingTransactionsValue();
             bool expected = true;
             bool actual;
             actual = target.SerializeFromString(s, out key, out value);
             Assert.AreEqual(keyExpected, key);
-            Assert.AreEqual(value.transactionType, CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort);
+            Assert.AreEqual(value.transactionType, OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort);
             Assert.IsTrue(valueExpected.nackRMList.Except(value.nackRMList).Count() == 0);
             Assert.AreEqual(expected, actual);
         }
@@ -114,12 +112,12 @@ namespace MyTMTests
         ///</summary>
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_SerializeKeyValueToStringTest1()
+        public void TM_OutstandingTransactions_SerializeKeyValueToStringTest1()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             string key = "id";
-            CommittedTransactions.CommittedTransactionsValue value = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit,
+            OutstandingTransactions.OutstandingTransactionsValue value = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit,
                 new List<string> { "rm1", "rm2" });
             string expected = "id,0,rm1,rm2";
             string actual;
@@ -129,11 +127,11 @@ namespace MyTMTests
 
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_SerializeKeyValueToStringTest2()
+        public void TM_OutstandingTransactions_SerializeKeyValueToStringTest2()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             string key = "id";
-            CommittedTransactions.CommittedTransactionsValue value = null;
+            OutstandingTransactions.OutstandingTransactionsValue value = null;
             string expected = null;
             string actual;
             actual = target.SerializeToString(key, value);
@@ -142,11 +140,11 @@ namespace MyTMTests
 
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_SerializeKeyValueToStringTest3()
+        public void TM_OutstandingTransactions_SerializeKeyValueToStringTest3()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             string key = "id";
-            CommittedTransactions.CommittedTransactionsValue value = null;
+            OutstandingTransactions.OutstandingTransactionsValue value = null;
             string expected = "id";
             string actual;
             actual = target.SerializeToString(key, value, true);
@@ -155,17 +153,17 @@ namespace MyTMTests
 
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_FuncTest1()
+        public void TM_OutstandingTransactions_FuncTest1()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             target.transactionList.Clear();
             target.WriteToFile(); // Write empty list to file to initialize state
 
-            CommittedTransactions.CommittedTransactionsValue rmlist1 = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit, 
+            OutstandingTransactions.OutstandingTransactionsValue rmlist1 = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit,
                 new List<string> { "rm1", "rm2" });
-            CommittedTransactions.CommittedTransactionsValue rmlist2 = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort, 
+            OutstandingTransactions.OutstandingTransactionsValue rmlist2 = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort,
                 new List<string> { "rm3", "rm4" });
 
             target.UpdateAndFlush("id1", rmlist1);
@@ -175,25 +173,25 @@ namespace MyTMTests
 
             Assert.IsTrue(target.transactionList.ContainsKey("id1"));
             Assert.IsTrue(target.transactionList.ContainsKey("id2"));
-            Assert.IsTrue(target.transactionList["id1"].transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit);
-            Assert.IsTrue(target.transactionList["id2"].transactionType == CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort);
+            Assert.IsTrue(target.transactionList["id1"].transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit);
+            Assert.IsTrue(target.transactionList["id2"].transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort);
             Assert.IsTrue(rmlist1.nackRMList.Except(target.transactionList["id1"].nackRMList).Count() == 0);
             Assert.IsTrue(rmlist2.nackRMList.Except(target.transactionList["id2"].nackRMList).Count() == 0);
         }
 
         [TestMethod()]
         [DeploymentItem("MyTM.exe")]
-        public void TM_CommittedTransactions_FuncTest2()
+        public void TM_OutstandingTransactions_FuncTest2()
         {
-            CommittedTransactions_Accessor target = new CommittedTransactions_Accessor();
+            OutstandingTransactions_Accessor target = new OutstandingTransactions_Accessor();
             target.transactionList.Clear();
             target.WriteToFile(); // Write empty list to file to initialize state
 
-            CommittedTransactions.CommittedTransactionsValue rmlist1 = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Commit,
+            OutstandingTransactions.OutstandingTransactionsValue rmlist1 = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit,
                 new List<string> { "rm1", "rm2" });
-            CommittedTransactions.CommittedTransactionsValue rmlist2 = new CommittedTransactions.CommittedTransactionsValue(
-                CommittedTransactions.CommittedTransactionsValue.TransactionType.Abort,
+            OutstandingTransactions.OutstandingTransactionsValue rmlist2 = new OutstandingTransactions.OutstandingTransactionsValue(
+                OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort,
                 new List<string> { "rm3", "rm4" });
 
             target.UpdateAndFlush("id1", rmlist1);
