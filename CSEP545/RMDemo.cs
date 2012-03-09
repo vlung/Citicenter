@@ -55,9 +55,9 @@
             Pause();
 
             // rm dies
-            //CrashDuringCommit();
-            //ReadAllRoomData(null);
-            //Pause();
+            CrashDuringCommit();
+            ReadAllRoomData(null);
+            Pause();
 
             // shut down
             StopAll();
@@ -117,6 +117,7 @@
             if (result)
             {
                 Console.WriteLine("{0}: Adding {1} rooms in {2} for {3}", tx1, 5, roomData1[0][0], roomData1[0][2]);
+                ReadAllRoomData(tx1);
             }
 
             Console.WriteLine("{0}: Call RM.SelfDestruct(2)", tx1);
@@ -136,8 +137,37 @@
 
             Pause();
             StartRoomsRM();
+            Pause();
             ReadAllRoomData(null);
 
+            tx1 = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx1);
+
+            result = GetWC().AddRooms(tx1, roomData1[0][0], 5, int.Parse(roomData1[0][2]));
+            if (result)
+            {
+                Console.WriteLine("{0}: Adding {1} rooms in {2} for {3}", tx1, 5, roomData1[0][0], roomData1[0][2]);
+                ReadAllRoomData(tx1);
+            }
+
+            Console.WriteLine("{0}: Call RM.SelfDestruct(10)", tx1);
+            GetRoomsRM().SelfDestruct(10);
+            Pause();
+
+            try
+            {
+                Console.WriteLine("{0}: Try commit", tx1);
+                GetWC().Commit(tx1);
+                Console.WriteLine("{0}: UNEXPECTED ERROR", tx1);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("{0}: {1}", tx1, e.Message);
+            }
+
+            Pause();
+            StartRoomsRM();
+            Pause();
         }
 
         private void Deadlock()

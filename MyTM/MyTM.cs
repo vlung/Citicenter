@@ -322,7 +322,7 @@ namespace MyTM
     {
         #region Private Properties
 
-        private HashSet<RM> resourceManagers;   // A hash set containing the list of RMs enlisted to the TM
+        private Dictionary<string, RM> resourceManagers;   // A hash set containing the list of RMs enlisted to the TM
         private Dictionary<Transaction, List<string>> activeTransactions; // A list of active transactions
         private OutstandingTransactions OutstandingTransactions; // A list of outstanding (committed/aborted but not fully ACKed) transactions
 
@@ -333,7 +333,7 @@ namespace MyTM
         public MyTM()
         {
             System.Console.WriteLine("Transaction Manager instantiated");
-            resourceManagers = new HashSet<RM>();
+            resourceManagers = new Dictionary<string, RM>();
             activeTransactions = new Dictionary<Transaction, List<string>>();
             OutstandingTransactions = OutstandingTransactions.GetInstance();
         }
@@ -582,20 +582,28 @@ namespace MyTM
         {
             lock (resourceManagers)
             {
-                foreach (RM rm in resourceManagers)
+                if (!this.resourceManagers.ContainsKey(name))
                 {
-                    try
-                    {
-                        if (rm.GetName().Contains(name.ToLower()))
-                            return rm;
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
+                    return null;
                 }
+
+                try
+                {
+                    // get the RM and check to see if it is still alive
+                    RM rm = this.resourceManagers[name];
+                    rm.GetName();
+
+                    return rm;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    this.resourceManagers.Remove(name);
+
+                    return null;
+                }
+                
             }
-            return null;
         }
 
         #endregion
@@ -697,11 +705,8 @@ namespace MyTM
             // add the new RM to the list
             lock (this.resourceManagers)
             {
-                if (this.resourceManagers.Contains(newRM))
-                {
-                    this.resourceManagers.Remove(newRM);
-                }
-                this.resourceManagers.Add(newRM);
+                // add the new RM
+                this.resourceManagers[newRM.GetName()] = newRM;
             }
         }        
 
