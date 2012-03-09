@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MyRMTests
+namespace MyTMTests
 {
     /// <summary>
     ///This is a test class for OutstandingTransactionsTest and is intended

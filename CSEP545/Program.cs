@@ -12,12 +12,13 @@ namespace CSEP545
         /// </summary>
         static void Main()
         {
-            // THERE IS ALSO A MAIN MODULE IN Client.cs ... COMMENT THIS MAIN MODULE IF YOU ARE WORKING WITH CLIENT 
-            MasterTest mt = new MasterTest();
-            mt.ExecuteAll();
-
+            // THERE IS ALSO A MAIN MODULE IN Client.cs ... COMMENT THIS MAIN MODULE IF YOU ARE WORKING WITH CLIENT             
             //TPTest tptest = new TPTest();
             //tptest.ExecuteAll();
+
+            // bring up the interactive client            
+            CommandLineClient client = new CommandLineClient("localhost", 8086);
+            client.ExecuteAll();
         }
     }
 }

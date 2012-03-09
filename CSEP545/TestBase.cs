@@ -14,9 +14,11 @@ namespace CSEP545
     using System.IO;
     using TP;
 
-    class MasterTest
+    abstract class TestBase
     {
-        public void ExecuteAll()
+        public abstract void ExecuteAll();
+
+        /*
         {
             // delete old data files
             var dbFiles = Directory.EnumerateFiles(".", "*.tpdb");
@@ -33,7 +35,7 @@ namespace CSEP545
                 Console.WriteLine("Deleting {0}", MyTM.OutstandingTransactions.GetFilename());
             }
 
-            StartProcesses();
+            StartAll();
             Pause();
 
             TP.WC wc = (TP.WC)System.Activator.GetObject(typeof(RM), "http://localhost:8086/WC.soap");
@@ -91,83 +93,83 @@ namespace CSEP545
             wc.Commit(t);
 
             Pause("Press Enter to Exit");
-            StopProcesses();
+            StopAll();
         }
+         */
 
-        public void Pause(string message)
+        protected void Pause(string message)
         {
             Console.WriteLine(message);
             Console.ReadLine();
         }
 
-        public void Pause()
+        protected void Pause()
         {
             Pause("Press Enter to Continue");
         }
 
-        static void StartTM()
+        protected void StartTM()
         {
             Process.Start("MyTM.exe", "");
         }
 
-        static void StartWC()
+        protected void StartWC()
         {
             Process.Start("MyWC.exe", "");
         }
 
-        static void StartCarsRM()
+        protected void StartCarsRM()
         {
             Process.Start("MyRM.exe", "-n car -p 8082");
         }
 
-        static void StartRoomsRM()
+        protected void StartRoomsRM()
         {
             Process.Start("MyRM.exe", "-n room -p 8083");
         }
 
-        static void StartFlightsRM()
+        protected void StartFlightsRM()
         {
             Process.Start("MyRM.exe", "-n flight -p 8081");
         }
 
-        static void StartRMs()
+        protected void StartRMs()
         {
             StartRoomsRM();
             StartCarsRM();
             StartFlightsRM();
         }
 
-        static void StartProcesses()
+        protected void StartAll()
         {
             StartTM();
             StartWC();
             StartRMs();
-           
         }
 
-        static void StopTM()
+        protected void StopTM()
         {
             StopProcess("MyTM");
         }
 
-        static void StopWC()
+        protected void StopWC()
         {
             StopProcess("MyWC");
         }
 
-        static void StopRMs()
+        protected void StopRMs()
         {
             StopProcess("MyRM");
         }
 
-        static void StopProcesses()
+        protected void StopAll()
         {
             StopWC();
             StopRMs();
             StopTM();
         }
 
-        static void StopProcess(string name)
+        protected void StopProcess(string name)
         {
             foreach (Process p in Process.GetProcessesByName(name))
             {

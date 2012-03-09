@@ -64,7 +64,7 @@ namespace MyWC
         // This function cancels an itinerary
         public bool CancelItinerary(Customer customer)
         {
-            Transaction xid = new Transaction();
+            Transaction xid = TransactionManager.Start();
             try
             {
                 Flights.UnReserve(xid, customer);
