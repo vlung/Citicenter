@@ -587,6 +587,7 @@ namespace MyRM
             }
 
             // close the stream files
+            Console.WriteLine("Closing the data store");
             this.dataStore.Dispose();
         }
 
@@ -626,7 +627,7 @@ namespace MyRM
                     this.transactionManager.Register(this.tmRegistrationString);
                     this.transactionManager.Abort(tid);
                 }
-                catch (ArgumentException e)
+                catch (Exception e)
                 {
                     this.transactionManager = null;
                     Console.WriteLine(e.ToString());

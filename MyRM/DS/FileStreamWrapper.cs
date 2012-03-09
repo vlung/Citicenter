@@ -116,7 +116,7 @@
             if (1 == this.MaxDiskWrites)
             {
                 // kill the RM
-                MyRM.GlobalState.Mode = MyRM.GlobalState.RunMode.Kill;
+                Environment.Exit(1);
             }
 
             // decrement the count

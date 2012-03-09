@@ -16,6 +16,17 @@ namespace CSEP545
 
     abstract class TestBase
     {
+        #region Private Members
+
+        private static WC s_wc;
+        private static TM s_tm;
+        
+        private static RM s_carsRM;
+        private static RM s_flightsRM;
+        private static RM s_roomsRM;
+
+        #endregion
+
         public abstract void ExecuteAll();
 
         /*
@@ -96,6 +107,112 @@ namespace CSEP545
             StopAll();
         }
          */
+        protected WC GetWC()
+        {
+            bool done = false;
+            while (!done)
+            {
+                try
+                {
+                    if (null == s_wc)
+                    {
+                        s_wc = (WC)System.Activator.GetObject(typeof(WC), "http://localhost:8086/WC.soap");
+                    }
+                    s_wc.ToString();
+
+                    done = true;
+                }
+                catch (Exception)
+                {
+                    s_wc = null;
+                }
+            }
+
+            return s_wc;
+        }
+
+        protected TM GetTM()
+        {
+            bool done = false;
+            while (!done)
+            {
+                try
+                {
+                    if (null == s_tm)
+                    {
+                        s_tm = (TM)System.Activator.GetObject(typeof(TM), "http://localhost:8089/TM.soap");
+                    }
+                    s_tm.ToString();
+
+                    done = true;
+                }
+                catch (Exception)
+                {
+                    s_tm = null;
+                }
+            }
+
+            return s_tm;
+        }
+
+        protected RM GetCarsRM()
+        {
+            s_carsRM = GetRM(s_carsRM, "http://localhost:8081/RM.soap");
+            return s_carsRM;
+        }
+
+        protected RM GetFlightsRM()
+        {
+            s_flightsRM = GetRM(s_flightsRM, "http://localhost:8082/RM.soap");
+            return s_flightsRM;
+        }
+
+        protected RM GetRoomsRM()
+        {
+            s_roomsRM = GetRM(s_roomsRM, "http://localhost:8083/RM.soap");
+            return s_roomsRM;
+        }
+
+        protected RM GetRM(RM rm, string url)
+        {
+            bool done = false;
+            while (!done)
+            {
+                try
+                {
+                    if (null == rm)
+                    {
+                        rm = (RM)System.Activator.GetObject(typeof(RM), url);
+                    }
+                    rm.GetName();
+                    done = true;
+                }
+                catch (Exception)
+                {
+                    rm = null;
+                }
+            }
+
+            return rm;
+        }
+
+        protected void DeleteDataFiles()
+        {
+            // delete old data files
+            var dbFiles = Directory.EnumerateFiles(".", "*.tpdb");
+            foreach (string file in dbFiles)
+            {
+                File.Delete(file);
+                Console.WriteLine("Deleting RM data file: {0}", file);
+            }
+
+            // delete TM data file
+            if (File.Exists(MyTM.OutstandingTransactions.GetFilename()))
+            {
+                File.Delete(MyTM.OutstandingTransactions.GetFilename());
+                Console.WriteLine("Deleting {0}", MyTM.OutstandingTransactions.GetFilename());
+            }
+        }
 
         protected void Pause(string message)
         {
@@ -120,17 +237,17 @@ namespace CSEP545
 
         protected void StartCarsRM()
         {
-            Process.Start("MyRM.exe", "-n car -p 8082");
+            Process.Start("MyRM.exe", "-n car -p 8081");
+        }
+
+        protected void StartFlightsRM()
+        {
+            Process.Start("MyRM.exe", "-n flight -p 8082");
         }
 
         protected void StartRoomsRM()
         {
             Process.Start("MyRM.exe", "-n room -p 8083");
-        }
-
-        protected void StartFlightsRM()
-        {
-            Process.Start("MyRM.exe", "-n flight -p 8081");
         }
 
         protected void StartRMs()

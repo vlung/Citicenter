@@ -18,21 +18,7 @@ namespace CSEP545
     {
         public override void ExecuteAll()
         {
-            // delete old data files
-            var dbFiles = Directory.EnumerateFiles(".", "*.tpdb");
-            foreach (string file in dbFiles)
-            {
-                File.Delete(file);
-                Console.WriteLine("Deleting RM data file: {0}", file);
-            }
-            
-            // delete TM data file
-            if (File.Exists(MyTM.OutstandingTransactions.GetFilename()))
-            {
-                File.Delete(MyTM.OutstandingTransactions.GetFilename());
-                Console.WriteLine("Deleting {0}", MyTM.OutstandingTransactions.GetFilename());
-            }
-
+            DeleteDataFiles();
             StartAll();
 
             TP.WC wc = (TP.WC)System.Activator.GetObject(typeof(RM), "http://localhost:8086/WC.soap");

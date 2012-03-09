@@ -46,6 +46,7 @@
     <Compile Include="Client.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RMDemo.cs" />
     <Compile Include="TestBase.cs" />
     <Compile Include="TPTest.cs" />
   </ItemGroup>

@@ -83,7 +83,14 @@ namespace MyTM
         // Execute the function block
         protected void RunAction()
         {
-            action();
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
     }
 
@@ -103,7 +110,14 @@ namespace MyTM
         // Execute the function block and store its result
         protected void RunFunc()
         {
-            result = func();
+            try
+            {
+                result = func();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
     }
 
@@ -360,12 +374,15 @@ namespace MyTM
             List<RM> rmList = new List<RM>();
             lock (this.resourceManagers)
             {
-                foreach (RM mgr in this.resourceManagers)
+                foreach (string name in rmNameList)
                 {
-                    if (rmNameList.Contains(mgr.GetName()))
+                    RM manager = GetResourceMananger(name);
+                    if (null == manager)
                     {
-                        rmList.Add(mgr);
+                        continue;
                     }
+
+                    rmList.Add(manager);
                 }
 
                 // Request to prepare for all resource managers involved in this transaction
@@ -507,12 +524,15 @@ namespace MyTM
             List<RM> rmList = new List<RM>();
             lock (this.resourceManagers)
             {
-                foreach (RM mgr in this.resourceManagers)
+                foreach (string name in rmNameList)
                 {
-                    if (rmNameList.Contains(mgr.GetName()))
+                    RM manager = GetResourceMananger(name);
+                    if (null == manager)
                     {
-                        rmList.Add(mgr);
+                        continue;
                     }
+
+                    rmList.Add(manager);
                 }
 
                 // Write transaction id and list of RM to outstanding transaction list before aborting the transaction
@@ -564,8 +584,15 @@ namespace MyTM
             {
                 foreach (RM rm in resourceManagers)
                 {
-                    if (rm.GetName().Contains(name.ToLower()))
-                        return rm;
+                    try
+                    {
+                        if (rm.GetName().Contains(name.ToLower()))
+                            return rm;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
                 }
             }
             return null;
@@ -670,7 +697,11 @@ namespace MyTM
             // add the new RM to the list
             lock (this.resourceManagers)
             {
-                resourceManagers.Add(newRM);
+                if (this.resourceManagers.Contains(newRM))
+                {
+                    this.resourceManagers.Remove(newRM);
+                }
+                this.resourceManagers.Add(newRM);
             }
         }        
 
@@ -813,22 +844,13 @@ namespace MyTM
         // Checks whether the give RM is known and throws UnknownRMException if it is not known.
         private void ValidateRM(string rmName)
         {
-            bool isKnown = false;
             lock(this.resourceManagers)
             {
-                foreach (RM manager in this.resourceManagers)
+                RM manager = GetResourceMananger(rmName);
+                if (null == manager)
                 {
-                    if (manager.GetName().Equals(rmName))
-                    {
-                        isKnown = true;
-                        break;
-                    }
+                    throw new UnknownRMException();
                 }
-            }
-
-            if (!isKnown)
-            {
-                throw new UnknownRMException();
             }
         }
 
