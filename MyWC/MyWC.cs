@@ -37,20 +37,42 @@ namespace MyWC
             {
                 if (car)
                 {
-                    Cars.Reserve(tid, c, RID.forCar(location));
+                    bool result = Cars.Reserve(tid, c, RID.forCar(location));
+                    if (!result)
+                    {
+                        throw new InvalidOperationException();
+                    }
                 }
 
                 if (room)
                 {
-                    Rooms.Reserve(tid, c, RID.forRoom(location));
+                    bool result = Rooms.Reserve(tid, c, RID.forRoom(location));
+                    if (!result)
+                    {
+                        throw new InvalidOperationException();
+                    }
                 }
 
                 foreach (string flight in flights)
                 {
-                    Flights.Reserve(tid, c, RID.forFlight(flight));
+                    bool result = Flights.Reserve(tid, c, RID.forFlight(flight));
+                    if (!result)
+                    {
+                        throw new InvalidOperationException();
+                    }
                 }
 
                 Commit(tid);
+            }
+            catch (ArgumentException)
+            {
+                Abort(tid);
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                Abort(tid);
+                return false;
             }
             catch (Exception e)
             {
@@ -71,6 +93,16 @@ namespace MyWC
                 Cars.UnReserve(xid, customer);
                 Rooms.UnReserve(xid, customer);
                 Commit(xid);
+            }
+            catch (ArgumentException)
+            {
+                Abort(xid);
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                Abort(xid);
+                return false;
             }
             catch (Exception e)
             {
