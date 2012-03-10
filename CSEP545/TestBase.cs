@@ -107,6 +107,8 @@ namespace CSEP545
             StopAll();
         }
          */
+        #region RPC Helplers
+
         protected WC GetWC()
         {
             bool done = false;
@@ -196,6 +198,182 @@ namespace CSEP545
             return rm;
         }
 
+        #endregion 
+
+        #region Transaction Logging Operations
+
+        protected Transaction StartAndLogTransaction()
+        {
+            Transaction tx = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx);
+
+            return tx;
+        }
+
+        protected void CommitAndLogTransaction(Transaction tx)
+        {
+            GetWC().Commit(tx);
+            Console.WriteLine("{0}: Commited", tx);
+        }
+
+        protected void AbortAndLogTransaction(Transaction tx)
+        {
+            GetWC().Abort(tx);
+            Console.WriteLine("{0}: Aborted", tx);
+        }
+
+        #endregion
+
+        #region Data Print Helpers
+
+        protected void PrintDataStore(Transaction context)
+        {
+            Console.WriteLine();
+            PrintHeader("Current State of the data store");
+
+            Transaction tx = context;
+            if (null == context)
+            {
+                tx = GetWC().Start();
+                Console.WriteLine("{0}: Started", tx);
+                PrintSeparator();
+            }
+
+            PrintCustomerInventory(tx);
+            PrintCarInventory(tx);
+            PrintFlightInventory(tx);
+            PrintRoomInventory(tx);
+            
+            if (null == context)
+            {
+                GetWC().Commit(tx);
+                Console.WriteLine("{0}: Commited", tx);
+                PrintSeparator();
+            }
+        }
+
+        protected void PrintCustomerInventory(Transaction context)
+        {
+            Transaction tx = context;
+            if (null == context)
+            {
+                tx = GetWC().Start();
+                Console.WriteLine("{0}: Started", tx);
+                PrintSeparator();
+            }
+
+            string[] customers = GetWC()
+                                    .ListCustomers(tx)
+                                    .Select(x => x.ToString())
+                                    .ToArray();
+            PrintInventoryData("Customers", tx, customers);
+
+            if (null == context)
+            {
+                GetWC().Commit(tx);
+                Console.WriteLine("{0}: Commited", tx);
+                PrintSeparator();
+            }
+        }
+
+        protected void PrintCarInventory(Transaction context)
+        {
+            Transaction tx = context;
+            if (null == context)
+            {
+                tx = GetWC().Start();
+                Console.WriteLine("{0}: Started", tx);
+                PrintSeparator();
+            }
+
+            // read cars
+            string[] cars = GetWC().ListCars(tx);
+            PrintInventoryData("Cars", tx, cars);
+
+            if (null == context)
+            {
+                GetWC().Commit(tx);
+                Console.WriteLine("{0}: Commited", tx);
+                PrintSeparator();
+            }
+        }
+
+        protected void PrintFlightInventory(Transaction context)
+        {
+            Transaction tx = context;
+            if (null == context)
+            {
+                tx = GetWC().Start();
+                Console.WriteLine("{0}: Started", tx);
+                PrintSeparator();
+            }
+
+            // read flights
+            string[] flights = GetWC().ListFlights(tx);
+            PrintInventoryData("Flights", tx, flights);
+
+            if (null == context)
+            {
+                GetWC().Commit(tx);
+                Console.WriteLine("{0}: Commited", tx);
+                PrintSeparator();
+            }
+        }
+
+        protected void PrintRoomInventory(Transaction context)
+        {
+            Transaction tx = context;
+            if (null == context)
+            {
+                tx = GetWC().Start();
+                Console.WriteLine("{0}: Started", tx);
+                PrintSeparator();
+            }
+
+            // read rooms
+            string[] rooms = GetWC().ListRooms(tx);
+            PrintInventoryData("Rooms", tx, rooms);
+
+            if (null == context)
+            {
+                GetWC().Commit(tx);
+                Console.WriteLine("{0}: Commited", tx);
+                PrintSeparator();
+            }
+        }
+
+        protected void PrintInventoryData(string type, Transaction context, string[] data)
+        {
+            Console.WriteLine("Found {0} {1} records", data.Length, type);
+            if (0 == data.Length)
+            {
+                return;
+            }
+
+            PrintSeparator();
+            foreach (string item in data)
+            {
+                Console.WriteLine("{0}: {1}", context, item);
+            }
+            PrintSeparator();
+        }
+
+        protected void PrintHeader(string message)
+        {
+            PrintSeparator();
+            Console.WriteLine(message);
+            PrintSeparator();
+        }
+
+        protected void PrintSeparator()
+        {
+            Console.WriteLine("------------------------------------------------------------");
+        }
+
+        #endregion
+
+        #region Flow Control Helpers
+
         protected void DeleteDataFiles()
         {
             // delete old data files
@@ -214,18 +392,6 @@ namespace CSEP545
             }
         }
 
-        protected void PrintHeader(string message)
-        {
-            PrintSeparator();
-            Console.WriteLine(message);
-            PrintSeparator();
-        }
-
-        protected void PrintSeparator()
-        {
-            Console.WriteLine("------------------------------------------------------------");
-        }
-        
         protected void Pause(string message)
         {
             Console.WriteLine();
@@ -306,6 +472,8 @@ namespace CSEP545
                 p.Kill();
             }
         }
+
+        #endregion
     }
 }
 

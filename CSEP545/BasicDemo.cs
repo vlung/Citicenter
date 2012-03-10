@@ -1,6 +1,4 @@
-﻿
-
-namespace CSEP545
+﻿namespace CSEP545
 {
     using System;
     using System.Collections.Generic;
@@ -42,26 +40,33 @@ namespace CSEP545
             Console.Clear();
 
             // start WC, TM, and RoomRM
-            PrintHeader("BASIC data entry demo");
+            PrintHeader("BASIC FUNCTIONALITY DEMO");
             StartAll();
             
-            ReadInventory(null);
+            PrintDataStore(null);
             Pause();
 
             // insert some data in the store
-            AddData();
+            TestAddData();
+            Pause();
+
+            // flight resource tests
+            TestFlightMethods();
             Pause();
 
             StopAll();
+            PrintHeader("DONE BASIC FUNCTIONALITY DEMO");
             Pause();
         }
 
-        private void AddData()
+        private void TestAddData()
         {
             Console.Clear();
             PrintHeader("Add resources (cars, flights, rooms) to the system");
 
             Transaction tx = GetWC().Start();
+
+            PrintDataStore(tx);
 
             Console.WriteLine("Add flights:");
             PrintSeparator();
@@ -91,7 +96,7 @@ namespace CSEP545
             PrintSeparator();
 
             // read the inventory before commit
-            ReadInventory(null);
+            PrintDataStore(null);
             Pause();
 
             // commit
@@ -99,63 +104,111 @@ namespace CSEP545
             Console.WriteLine("{0}: Commited", tx);
 
             // read the inventory after commit
-            ReadInventory(null);
+            PrintDataStore(null);
         }
 
-        private void ReadInventory(Transaction context)
+        #region Test Flight Methods
+
+        private void TestFlightMethods()
+        {
+            Console.Clear();
+            PrintHeader("Manipulate flight resources");
+
+            string[] data = flightData[2];
+            Console.WriteLine("Modifying flight {0}", data[0]);
+
+            TestFlightUpdate(data);
+            Pause();
+            TestFlightQuery(data);
+            Pause();
+            TestFlightDelete(data);
+        }
+
+        private void TestFlightUpdate(string[] data)
+        {
+            Transaction tx = StartAndLogTransaction();
+            Console.WriteLine();
+            PrintFlightInventory(tx);
+
+            Console.WriteLine("Change flight price:");
+            PrintSeparator();
+            GetWC().AddSeats(tx, data[0], 0, 320);
+            Console.WriteLine("{0}: Added {2} seats at ${3} on flight {1}", tx, data[0], 0, 320);
+
+            Console.WriteLine();
+            Console.WriteLine("Adding seats:");
+            PrintSeparator();
+            GetWC().AddSeats(tx, data[0], 10, 320);
+            Console.WriteLine("{0}: Added {2} seats at ${3} on flight {1}", tx, data[0], 10, 320);
+
+            Console.WriteLine();
+            Console.WriteLine("Deleting seats:");
+            PrintSeparator();
+            GetWC().DeleteSeats(tx, data[0], 5);
+            Console.WriteLine("{0}: Deleted {2} seats on flight {1}", tx, data[0], 5);
+
+            CommitAndLogTransaction(tx);
+
+            Console.WriteLine();
+            PrintFlightInventory(null);
+        }
+
+        private void TestFlightQuery(string[] data)
         {
             Console.WriteLine();
-            PrintHeader("Current State of the data store");
+            Transaction tx = StartAndLogTransaction();
 
-            Transaction tx = context;
-            if (null == context)
-            {
-                tx = GetWC().Start();
-                Console.WriteLine("{0}: Started", tx);
-            }
-
-            // read customers
-            string[] customers = GetWC()
-                                    .ListCustomers(tx)
-                                    .Select(x => x.ToString())
-                                    .ToArray();
-            DisplayInventory("Customers", tx, customers);
-
-            // read cars
-            string[] cars = GetWC().ListCars(tx);
-            DisplayInventory("Cars", tx, cars);
-
-            // read flights
-            string[] flights = GetWC().ListFlights(tx);
-            DisplayInventory("Flights", tx, flights);
-
-            // read rooms
-            string[] rooms = GetWC().ListRooms(tx);
-            DisplayInventory("Rooms", tx, rooms);
-
-            if (null == context)
-            {
-                GetWC().Commit(tx);
-                Console.WriteLine("{0}: Commited", tx);
-            }
-
+            Console.WriteLine("Query flight info:");
             PrintSeparator();
+            int seats = GetWC().QueryFlight(tx, data[0]);
+            Console.WriteLine("{0}: Flight {1} has {2} available seats", tx, data[0], seats);
+            int price = GetWC().QueryFlightPrice(tx, data[0]);
+            Console.WriteLine("{0}: Flight {1} has a seat price of ${2}", tx, data[0], price);
+
+            AbortAndLogTransaction(tx);
         }
 
-        private void DisplayInventory(string type, Transaction context, string[] data)
+        private void TestFlightDelete(string[] data)
         {
-            Console.WriteLine("Found {0} {1} records", data.Length, type);
-            if (0 == data.Length)
+            Console.WriteLine();
+            Transaction tx = StartAndLogTransaction();
+            Console.WriteLine();
+            PrintFlightInventory(tx);
+
+            Console.WriteLine();
+            Console.WriteLine("Deleting flight:");
+            PrintSeparator();
+            GetWC().DeleteFlight(tx, data[0]);
+            Console.WriteLine("{0}: Deleted flight {1}", tx, data[0]);
+
+            try
             {
-                return;
+                int result = GetWC().QueryFlight(tx, data[0]);
+                Console.WriteLine("BUG");
+            }
+            catch (ArgumentException)
+            {
+                Console.WriteLine("{0}: Could not query seats on flight {1}", tx, data[0]);
             }
 
-            PrintSeparator();
-            foreach (string item in data)
+            try
             {
-                Console.WriteLine("{0}: {1}", context, item);
+                int result = GetWC().QueryFlightPrice(tx, data[0]);
+                Console.WriteLine("BUG");
             }
-            PrintSeparator();
+            catch (ArgumentException)
+            {
+                Console.WriteLine("{0}: Could not query seat price on flight {1}", tx, data[0]);
+            }
+
+            // commit
+            CommitAndLogTransaction(tx);
+
+            Console.WriteLine();
+            PrintFlightInventory(null);
         }
+        
+        #endregion
+
     }
 }

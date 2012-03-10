@@ -19,8 +19,8 @@ namespace CSEP545
             RMDemo rmDemo = new RMDemo();
             rmDemo.ExecuteAll();
 
-            TPDemo demo2 = new TPDemo();
-            demo2.ExecuteAll();
+            TPDemo tpDemo = new TPDemo();
+            tpDemo.ExecuteAll();
 
             // bring up the interactive client            
             CommandLineClient client = new CommandLineClient("localhost", 8086);
