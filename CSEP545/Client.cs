@@ -73,6 +73,8 @@ namespace CSEP545
                 Console.WriteLine("Welcome to the interactive query client!");
                 Console.WriteLine("----------------------------------------");
 
+                PrintHelp();
+
                 String line;
                 while (true)
                 {                    
@@ -382,7 +384,7 @@ namespace CSEP545
                 {
                     if (cmds.Length < 5)
                     {
-                        throw new System.InvalidOperationException("usage: reserve flight1 ... flightN loc bookCar bookRoom");
+                        throw new System.InvalidOperationException("usage: reserve flight1 ... flightN location bookCar bookRoom");
                     }
                     if (customer == null)
                     {
@@ -403,6 +405,10 @@ namespace CSEP545
                     {
                         Console.WriteLine("Failed to reserve the itinerary for customer " + customer);
                     }
+                }
+                else if (string.Compare("help", command, true) == 0 || command.CompareTo("?") == 0)
+                {
+                    PrintHelp();
                 }
                 else if (string.Compare("exit", (command), true) == 0 || string.Compare("quit", (command), true) == 0)
                 {
@@ -425,6 +431,43 @@ namespace CSEP545
             {
                 Console.WriteLine(x.ToString());
             }
+        }
+
+        private void PrintHelp()
+        {
+            Console.WriteLine(
+                "====\nHELP\n====\n" +
+                "print        - Print current transaction and customer information\n" +
+                "help or ?    - Show help.\n\n" +
+                "exit or quit - Terminate the client.\n\n" +
+                "Transactions and Customer\n" +
+                "-------------------------\n" +
+                "begin  - begin transaction\n" +
+                "commit - commit transaction\n" +
+                "abort  - abort transaction\n" +
+                "new [UUID] - Set current customer id. If UUID is not given,\n" +
+                "             a random customer id is created.\n\n" +
+                "Managing Resources\n" +
+                "------------------\n" +
+                "add (car|seat|room) location qty price - add resources\n" +
+                "delete (car|seat|room) location qty    - delete resources\n" +
+                "delete flight                          - cancel flight and all associate\n" +
+                "                                         reservations.\n" +
+                "query (car|seat|room) location         - query available resource at location\n" +
+                "price (car|seat|room) location         - query price of resource at location\n" +
+                "list (car|seat|room)                   - list registered resources.\n\n" +
+                "Managing Reservations\n" +
+                "---------------------\n" +
+                "reserve f1 ... fN location bookCar bookRoom\n" +
+                "                           - make a reservation for current customer.\n" +
+                "                             f1 ... fN are flights.\n" +
+                "                             bookCar and bookRoom are boolean values.\n" +
+                "cancel [customer]          - cancel reservation for given or current customer\n" +
+                "query itinerary [customer] - query itinerary of given or current customer\n" +
+                "price itinerary [customer] - query price of itinerary of given\n" +
+                "                             or current customer\n" +
+                "list customer              - list registered customers."
+            );
         }
 
         #endregion
