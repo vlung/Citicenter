@@ -13,8 +13,11 @@ namespace CSEP545
         static void Main()
         {
             // THERE IS ALSO A MAIN MODULE IN Client.cs ... COMMENT THIS MAIN MODULE IF YOU ARE WORKING WITH CLIENT             
-            RMDemo demo1 = new RMDemo();
-            demo1.ExecuteAll();
+            BasicDemo basicDemo = new BasicDemo();
+            basicDemo.ExecuteAll();
+            
+            RMDemo rmDemo = new RMDemo();
+            rmDemo.ExecuteAll();
 
             // bring up the interactive client            
             CommandLineClient client = new CommandLineClient("localhost", 8086);

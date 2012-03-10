@@ -214,8 +214,21 @@ namespace CSEP545
             }
         }
 
+        protected void PrintHeader(string message)
+        {
+            PrintSeparator();
+            Console.WriteLine(message);
+            PrintSeparator();
+        }
+
+        protected void PrintSeparator()
+        {
+            Console.WriteLine("------------------------------------------------------------");
+        }
+        
         protected void Pause(string message)
         {
+            Console.WriteLine();
             Console.WriteLine(message);
             Console.ReadLine();
         }
