@@ -1,77 +1,157 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace CSEP545
+﻿namespace CSEP545
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections;
+    using System.Linq;
     using System.Text;
-    using System.Threading;
-    using System.Diagnostics;
-    using System.IO;
     using TP;
 
-    class TPTest : TestBase
+    class TPDemo : TestBase
     {
+        #region Test Data
+
+        private string[][] roomData1 = 
+            {
+                new string[]{ "Boston",     "10",   "20"},
+                new string[]{ "New York",   "3",    "45"},
+                new string[]{ "Kirkland",   "8",    "35"},
+            };
+
+        private string[][] roomData2 = 
+            {
+                new string[]{ "Montreal",   "15",   "75"},
+            };
+
+        #endregion
+
+        #region TestBase Methods
         public override void ExecuteAll()
         {
+            // clean up
             DeleteDataFiles();
+
+            // start WC, TM, and RoomRM
             StartAll();
+            Pause();
 
-            TP.WC wc = (TP.WC)System.Activator.GetObject(typeof(RM), "http://localhost:8086/WC.soap");
-            RM rmcars = (RM)System.Activator.GetObject(typeof(RM), "http://localhost:8082/RM.soap");
-            RM rmrooms = (RM)System.Activator.GetObject(typeof(RM), "http://localhost:8083/RM.soap");
+            PreparedWithNoResponse();
+            Pause();
 
-            PauseHeading("Basic commit scenario");
+            PreparedWithTimeout();
+            Pause();
 
-            Console.WriteLine("T1 - Adding 1 car, 1 room and 1 seat to location SEA");
+            CommitTimesOut();
+            Pause();
 
-            Transaction t1 = wc.Start();
+            AbortTimesOut();
+            Pause();
 
-            wc.AddCars(t1, "SEA", 1, 50);
-            wc.AddRooms(t1, "SEA", 1, 100);
-            wc.AddSeats(t1, "SEA", 1, 200);
-            wc.Commit(t1);
-
-            Console.WriteLine("T1 committed");
-
-            Console.WriteLine("T2 started");
-            Transaction t2 = wc.Start();
-
-            Console.WriteLine("T2 queries inventory...");
-            InventoryAtLocation(t2, wc, "SEA");
-            wc.Abort(t2);
-
-            Console.WriteLine("Another transaction reserving an itinerary: 1 car, 1 room and 1 seat at location SEA");
-            Customer c = new Customer();
-            wc.ReserveItinerary(c, new string[] {"SEA"}, "SEA", true, true);
-
-            Console.WriteLine("t3 started");
-            Transaction t3 = wc.Start();
-
-            Console.WriteLine("T3 queries inventory...");
-            InventoryAtLocation(t3, wc, "SEA");
-            wc.Abort(t3);
-            
-            Pause("Press Enter to Exit");
+            // shut down
             StopAll();
+            Pause();
         }
 
-        public void InventoryAtLocation(Transaction t, WC wc, string loc)
+        #endregion
+
+        #region Private Methods
+
+        private void PreparedWithNoResponse()
         {
-            Console.WriteLine(string.Format("Cars: {0} at ${1} each", wc.QueryCar(t, loc), wc.QueryCarPrice(t, loc)));
-            Console.WriteLine(string.Format("Flights: {0} at ${1} each", wc.QueryFlight(t, loc), wc.QueryFlightPrice(t, loc)));
-            Console.WriteLine(string.Format("Rooms: {0} at ${1} each", wc.QueryRoom(t, loc), wc.QueryRoomPrice(t, loc)));
+            Console.WriteLine("RM response NO to Request to Prepare:");
+            Console.WriteLine("-------------------------------------");
+
+            Transaction tx = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx);
+
+            foreach (string[] data in roomData1)
+            {
+                GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
+                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
+            }
+
+            GetRoomsRM().SetPrepareFailure(PrepareFailure.PrepareReturnsNo);
+            GetRoomsRM().SetCommitFailure(false);
+            GetRoomsRM().SetAbortFailure(false);
+
+            GetWC().Commit(tx);
+            Console.WriteLine("{0}: Aborted", tx);
         }
 
-        public void PauseHeading(string message)
+        private void PreparedWithTimeout()
         {
-            Pause(string.Format("==========\n{0}\n==========\nPress any key to begin", message));
+            Console.WriteLine("RM times out to Request to Prepare:");
+            Console.WriteLine("-----------------------------------");
+
+            Transaction tx = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx);
+
+            foreach (string[] data in roomData1)
+            {
+                GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
+                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
+            }
+
+            GetRoomsRM().SetPrepareFailure(PrepareFailure.PrepareTimesOut);
+            GetRoomsRM().SetCommitFailure(false);
+            GetRoomsRM().SetAbortFailure(false);
+
+            GetWC().Commit(tx);
+            Console.WriteLine("{0}: Aborted", tx);
         }
+
+        private void CommitTimesOut()
+        {
+            Console.WriteLine("RM times out on Commit:");
+            Console.WriteLine("-----------------------");
+
+            Transaction tx = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx);
+
+            foreach (string[] data in roomData1)
+            {
+                GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
+                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
+            }
+
+            GetRoomsRM().SetPrepareFailure(PrepareFailure.NoFailure);
+            GetRoomsRM().SetCommitFailure(true);
+            GetRoomsRM().SetAbortFailure(true);
+
+            GetWC().Commit(tx);
+            Console.WriteLine("{0}: Failed to commit and abort since RM is not responding. Notice in TP window that TP will attempt to re-commit in recovery.", tx);
+
+            Pause("Press Enter to make the RM operational again");
+            GetRoomsRM().SetCommitFailure(false);
+            GetRoomsRM().SetAbortFailure(false);
+
+            Pause("Wait for TM to do the re-commit. Press Enter when done");
+
+            Console.WriteLine("{0}: Committed", tx);
+        }
+
+        private void AbortTimesOut()
+        {
+            Console.WriteLine("RM times out on Abort:");
+            Console.WriteLine("----------------------");
+
+            Transaction tx = GetWC().Start();
+            Console.WriteLine("{0}: Started", tx);
+
+            foreach (string[] data in roomData1)
+            {
+                GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
+                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
+            }
+
+            GetRoomsRM().SetPrepareFailure(PrepareFailure.NoFailure);
+            GetRoomsRM().SetCommitFailure(false);
+            GetRoomsRM().SetAbortFailure(true);
+
+            GetWC().Abort(tx);
+            Console.WriteLine("{0}: Failed to abort since RM is not responding. Notice in TP window that TP will not re-abort in recovery since the TP has implemented Presumed Abort.", tx);
+
+            Console.WriteLine("{0}: Aborted", tx);
+        }
+        #endregion
     }
 }
-
-
