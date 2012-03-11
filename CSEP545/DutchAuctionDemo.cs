@@ -110,8 +110,7 @@
                             System.Threading.Thread.Sleep(RAND_GEN.Next(400, 500));
                             continue;
                         }
-
-                        int priceDrop = RAND_GEN.Next(MIN_PRICE / 20, MIN_PRICE / 10);
+                        
                         switch (priceDropCount % 3)
                         {
                             case 0:
@@ -123,6 +122,7 @@
                                         break;
                                     }
 
+                                    int priceDrop = RAND_GEN.Next(MIN_PRICE / 40, MIN_PRICE / 20);
                                     GetWC().AddCars(tx, LOCATION, 0, currentPrice - priceDrop);
                                     Console.WriteLine("Dropping car price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
@@ -137,6 +137,7 @@
                                         break;
                                     }
 
+                                    int priceDrop = RAND_GEN.Next(MIN_PRICE / 20, MIN_PRICE / 10);
                                     GetWC().AddSeats(tx, FLIGHT, 0, currentPrice - priceDrop);
                                     Console.WriteLine("Dropping seat price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
@@ -151,6 +152,7 @@
                                         break;
                                     }
 
+                                    int priceDrop = RAND_GEN.Next(MIN_PRICE / 40, MIN_PRICE / 20);
                                     GetWC().AddRooms(tx, LOCATION, 0, currentPrice - priceDrop);
                                     Console.WriteLine("Dropping room price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
