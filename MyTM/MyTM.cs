@@ -235,28 +235,25 @@ namespace MyTM
         // Write a outstanding transaction entry to the file immediately
         public void UpdateAndFlush(string transactionId, OutstandingTransactionsValue value)
         {
-            lock (this)
+            // If the list of NACK RMs is empty, the transaction has committed/aborted successfully
+            // so remove it from the list of outstanding transactions
+            if (value == null || value.nackRMList == null || value.nackRMList.Count == 0)
             {
-                // If the list of NACK RMs is empty, the transaction has committed/aborted successfully
-                // so remove it from the list of outstanding transactions
-                if (value == null || value.nackRMList == null || value.nackRMList.Count == 0)
-                {
-                    transactionList.Remove(transactionId);
-                }
-                // Otherwise, add/update the outstanding transaction list.
-                else
-                {
-                    transactionList[transactionId] = value;
-                }
+                transactionList.Remove(transactionId);
+            }
+            // Otherwise, add/update the outstanding transaction list.
+            else
+            {
+                transactionList[transactionId] = value;
+            }
 
-                // Append transaction information to file. If this is an existing transaction, it may
-                // cause the file to have multiple occurrences of the same transaction ID. We will take
-                // care of this in ReadFromFile() to make sure the last entry wins, this will avoid the need
-                // to rewrite the whole file every time an existing transaction is updated.
-                using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
-                {
-                    sw.WriteLine(SerializeToString(transactionId, value, true));
-                }
+            // Append transaction information to file. If this is an existing transaction, it may
+            // cause the file to have multiple occurrences of the same transaction ID. We will take
+            // care of this in ReadFromFile() to make sure the last entry wins, this will avoid the need
+            // to rewrite the whole file every time an existing transaction is updated.
+            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), true))
+            {
+                sw.WriteLine(SerializeToString(transactionId, value, true));
             }
         }
 
@@ -301,14 +298,11 @@ namespace MyTM
         // This function writes the list of outstanding transaction to the designated file
         public void WriteToFile()
         {
-            lock (this)
+            using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), false))
             {
-                using (System.IO.StreamWriter sw = new StreamWriter(GetFilename(), false))
+                foreach (string key in transactionList.Keys)
                 {
-                    foreach (string key in transactionList.Keys)
-                    {
-                        sw.WriteLine(SerializeToString(key, transactionList[key]));
-                    }
+                    sw.WriteLine(SerializeToString(key, transactionList[key]));
                 }
             }
         }
@@ -427,81 +421,84 @@ namespace MyTM
                     OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit,
                     rmNameList);
 
-                // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
-                if (allPrepared)
+                lock (OutstandingTransactions)
                 {
-                    // Write transaction id and list of RM to outstanding transaction list before committing the transaction
-                    // Flush the entry to the outstanding transaction file immediately
-                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
-
-                    System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
-
-                    // Execute commit() in all associated RMs
-                    for (int i = 0; i < rmList.Count; ++i)
+                    // If all resource managers responded Prepared to the Request to prepare, commit the transaction.
+                    if (allPrepared)
                     {
-                        ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Commit(context));
-                        try
-                        {
-                            exec.Run();
-                            // Remove RM from list of RM when we received Done (ie no timeout has occurred)
-                            committedTransactionValue.nackRMList.Remove(rmList[i].GetName());
-                        }
-                        catch (TimeoutException)
-                        {
-                            System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to commit...", context.Id, rmList[i].GetName()));
-                        }
-                    }
+                        // Write transaction id and list of RM to outstanding transaction list before committing the transaction
+                        // Flush the entry to the outstanding transaction file immediately
+                        OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
 
-                    // Write transaction id and list of unacknowledged RMs to the outstanding transaction list.
-                    // Flush the entry to the outstanding transaction file immediately
-                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
+                        System.Console.WriteLine(string.Format("Transaction {0} received Prepared from all resource managers. Committing transaction...", context.Id));
 
-                    if (committedTransactionValue.nackRMList.Count == 0)
-                    {
-                        System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
+                        // Execute commit() in all associated RMs
+                        for (int i = 0; i < rmList.Count; ++i)
+                        {
+                            ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Commit(context));
+                            try
+                            {
+                                exec.Run();
+                                // Remove RM from list of RM when we received Done (ie no timeout has occurred)
+                                committedTransactionValue.nackRMList.Remove(rmList[i].GetName());
+                            }
+                            catch (TimeoutException)
+                            {
+                                System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to commit...", context.Id, rmList[i].GetName()));
+                            }
+                        }
+
+                        // Write transaction id and list of unacknowledged RMs to the outstanding transaction list.
+                        // Flush the entry to the outstanding transaction file immediately
+                        OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
+
+                        if (committedTransactionValue.nackRMList.Count == 0)
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} commited", context.Id));
+                        }
+                        else
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} commited with some timeouts", context.Id));
+                        }
                     }
                     else
                     {
-                        System.Console.WriteLine(string.Format("Transaction {0} commited with some timeouts", context.Id));
-                    }
-                }
-                else
-                {
-                    // Initialize the list of RM to outstanding transaction list in case of recovery
-                    // Write transaction id and list of RM to outstanding transaction list before aborting the transaction
-                    // Flush the entry to the outstanding transaction file immediately
-                    committedTransactionValue.transactionType = OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort;
-                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
+                        // Initialize the list of RM to outstanding transaction list in case of recovery
+                        // Write transaction id and list of RM to outstanding transaction list before aborting the transaction
+                        // Flush the entry to the outstanding transaction file immediately
+                        committedTransactionValue.transactionType = OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort;
+                        OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
 
-                    System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
+                        System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
 
-                    // Execute abort() in all associated RMs
-                    for (int i = 0; i < rmList.Count; ++i)
-                    {
-                        ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
-                        try
+                        // Execute abort() in all associated RMs
+                        for (int i = 0; i < rmList.Count; ++i)
                         {
-                            exec.Run();
+                            ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
+                            try
+                            {
+                                exec.Run();
+                            }
+                            catch (TimeoutException)
+                            {
+                                System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
+                            }
                         }
-                        catch (TimeoutException)
-                        {
-                            System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
-                        }
-                    }
 
-                    // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
-                    // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
-                    // This will cancel out the entry we logged earlier about the transaction and all its RMs.
-                    // Flush the entry to the outstanding transaction file immediately
-                    committedTransactionValue.nackRMList.Clear();
-                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
-                    if (committedTransactionValue.nackRMList.Count == 0)
-                    {
-                        System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
-                    }
-                    else
-                    {
-                        System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
+                        // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
+                        // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
+                        // This will cancel out the entry we logged earlier about the transaction and all its RMs.
+                        // Flush the entry to the outstanding transaction file immediately
+                        committedTransactionValue.nackRMList.Clear();
+                        OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), committedTransactionValue);
+                        if (committedTransactionValue.nackRMList.Count == 0)
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
+                        }
+                        else
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
+                        }
                     }
                 }
             }
@@ -540,35 +537,39 @@ namespace MyTM
                 OutstandingTransactions.OutstandingTransactionsValue abortedTransactionValue = new OutstandingTransactions.OutstandingTransactionsValue(
                     OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort,
                     rmNameList);
-                OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
 
-                System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
-                for (int i = 0; i < rmList.Count; ++i)
+                lock (OutstandingTransactions)
                 {
-                    ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
-                    try
-                    {
-                        exec.Run();
-                    }
-                    catch (TimeoutException)
-                    {
-                        System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
-                    }
-                }
+                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
 
-                // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
-                // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
-                // This will cancel out the entry we logged earlier about the transaction and all its RMs.
-                // Flush the entry to the outstanding transaction file immediately
-                abortedTransactionValue.nackRMList.Clear();
-                OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
-                if (abortedTransactionValue.nackRMList.Count == 0)
-                {
-                    System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
-                }
-                else
-                {
-                    System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
+                    System.Console.WriteLine(string.Format("Transaction {0} aborting...", context.Id));
+                    for (int i = 0; i < rmList.Count; ++i)
+                    {
+                        ExecuteActionWithTimeout exec = new ExecuteActionWithTimeout(rmList[i].GetName(), () => rmList[i].Abort(context));
+                        try
+                        {
+                            exec.Run();
+                        }
+                        catch (TimeoutException)
+                        {
+                            System.Console.WriteLine(string.Format("Transaction {0} timed out while waiting for RM {1} to abort...", context.Id, rmList[i].GetName()));
+                        }
+                    }
+
+                    // PRESUMED ABORT: Once the TM sends out the abort, it forgets about the transaction immediately.
+                    // So we write transaction id and an _empty_ list of unacknowledged RMs to the outstanding transaction list.
+                    // This will cancel out the entry we logged earlier about the transaction and all its RMs.
+                    // Flush the entry to the outstanding transaction file immediately
+                    abortedTransactionValue.nackRMList.Clear();
+                    OutstandingTransactions.UpdateAndFlush(context.Id.ToString(), abortedTransactionValue);
+                    if (abortedTransactionValue.nackRMList.Count == 0)
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} aborted", context.Id));
+                    }
+                    else
+                    {
+                        System.Console.WriteLine(string.Format("Transaction {0} aborted with some timeouts", context.Id));
+                    }
                 }
             }
         }
@@ -739,75 +740,84 @@ namespace MyTM
             Console.Out.WriteLine("Recovery started...");
             List<string> deleteTransactionList = new List<string>(); // Keep track of transactions that are fully acknowledged by all its RMs
 
-            foreach (string transactionId in OutstandingTransactions.transactionList.Keys)
+            lock (OutstandingTransactions)
             {
-                // For each outstanding transaction, get its transaction id and its OutstandingTransactions value
-                OutstandingTransactions.OutstandingTransactionsValue entry = OutstandingTransactions.transactionList[transactionId];
-                Transaction context = new Transaction();
-                context.Id = new Guid(transactionId);
-
-                Console.Out.WriteLine(string.Format("Recovery: Recovering transaction {0}...", transactionId));
-
-                // For each of the remaining NACK RMs, reissue the Commit or Abort
-                for (int i = 0; i < entry.nackRMList.Count; ++i)
+                if (OutstandingTransactions.transactionList.Keys.Count == 0)
                 {
-                    string rmName = entry.nackRMList[i];
-                    RM rm = GetResourceMananger(rmName);
-                    if (rm == null)
-                    {
-                        Console.Out.WriteLine(string.Format("Recovery: Failed to find resource manager {0}", rmName));
-                    }
-                    else
-                    {
-                        ExecuteActionWithTimeout exec;
+                    Console.WriteLine("Recovery: No outstanding transactions to recover. Recovery completed.");
+                    return;
+                }
 
-                        if (entry.transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit)
+                foreach (string transactionId in OutstandingTransactions.transactionList.Keys)
+                {
+                    // For each outstanding transaction, get its transaction id and its OutstandingTransactions value
+                    OutstandingTransactions.OutstandingTransactionsValue entry = OutstandingTransactions.transactionList[transactionId];
+                    Transaction context = new Transaction();
+                    context.Id = new Guid(transactionId);
+
+                    Console.Out.WriteLine(string.Format("Recovery: Recovering transaction {0}...", transactionId));
+
+                    // For each of the remaining NACK RMs, reissue the Commit or Abort
+                    for (int i = 0; i < entry.nackRMList.Count; ++i)
+                    {
+                        string rmName = entry.nackRMList[i];
+                        RM rm = GetResourceMananger(rmName);
+                        if (rm == null)
                         {
-                            Console.Out.WriteLine(string.Format("Recovery: Re-committing resource manager {0}...", rmName));
-                            exec = new ExecuteActionWithTimeout(rmName, () => rm.Commit(context));
+                            Console.Out.WriteLine(string.Format("Recovery: Failed to find resource manager {0}", rmName));
                         }
                         else
                         {
-                            Console.Out.WriteLine(string.Format("Recovery: Re-aborting resource manager {0}...", rmName));
-                            exec = new ExecuteActionWithTimeout(rmName, () => rm.Abort(context));
-                        }
+                            ExecuteActionWithTimeout exec;
 
-                        // Execute the commit or abort
-                        try
-                        {
-                            exec.Run();
-                            Console.Out.WriteLine("Recovery: Successful!");
+                            if (entry.transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Commit)
+                            {
+                                Console.Out.WriteLine(string.Format("Recovery: Re-committing resource manager {0}...", rmName));
+                                exec = new ExecuteActionWithTimeout(rmName, () => rm.Commit(context));
+                            }
+                            else
+                            {
+                                Console.Out.WriteLine(string.Format("Recovery: Re-aborting resource manager {0}...", rmName));
+                                exec = new ExecuteActionWithTimeout(rmName, () => rm.Abort(context));
+                            }
 
-                            // Remove RM from the current transaction since we received the Done message (ie the call didn't time out)
-                            OutstandingTransactions.transactionList[transactionId].nackRMList.RemoveAt(i);
-                            --i;
-                        }
-                        catch (TimeoutException)
-                        {
-                            System.Console.WriteLine("Recovery: Failed!");
+                            // Execute the commit or abort
+                            try
+                            {
+                                exec.Run();
+                                Console.Out.WriteLine("Recovery: Successful!");
+
+                                // Remove RM from the current transaction since we received the Done message (ie the call didn't time out)
+                                OutstandingTransactions.transactionList[transactionId].nackRMList.RemoveAt(i);
+                                --i;
+                            }
+                            catch (TimeoutException)
+                            {
+                                System.Console.WriteLine("Recovery: Failed!");
+                            }
                         }
                     }
-                }
-                
-                // PRESUMED ABORT: If the transaction is Abort, we don't care about the Done message and we forget about
-                // the transaction immediately.
-                // For commit transactions, mark transaction for removal if we received Done from all RMs
-                if (entry.transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort ||
-                    entry.nackRMList.Count == 0)
-                {
-                    deleteTransactionList.Add(transactionId);
-                }
-            }
 
-            // Delete transaction marked for removal from the outstanding transaction list
-            foreach (string s in deleteTransactionList)
-            {
-                OutstandingTransactions.transactionList.Remove(s);
+                    // PRESUMED ABORT: If the transaction is Abort, we don't care about the Done message and we forget about
+                    // the transaction immediately.
+                    // For commit transactions, mark transaction for removal if we received Done from all RMs
+                    if (entry.transactionType == OutstandingTransactions.OutstandingTransactionsValue.TransactionType.Abort ||
+                        entry.nackRMList.Count == 0)
+                    {
+                        deleteTransactionList.Add(transactionId);
+                    }
+                }
+
+                // Delete transaction marked for removal from the outstanding transaction list
+                foreach (string s in deleteTransactionList)
+                {
+                    OutstandingTransactions.transactionList.Remove(s);
+                }
+                // Update file to reflect outstanding transactions status
+                // This is a full rewrite of the outstanding transaction file and hence it will implicitly garbage collect
+                // the transactions that are no longer outstanding.
+                OutstandingTransactions.WriteToFile();
             }
-            // Update file to reflect outstanding transactions status
-            // This is a full rewrite of the outstanding transaction file and hence it will implicitly garbage collect
-            // the transactions that are no longer outstanding.
-            OutstandingTransactions.WriteToFile();
             Console.Out.WriteLine("Recovery completed.");
         }
 
