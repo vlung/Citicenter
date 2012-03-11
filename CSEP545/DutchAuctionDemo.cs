@@ -124,7 +124,7 @@
                                     }
 
                                     GetWC().AddCars(tx, LOCATION, 0, currentPrice - priceDrop);
-                                    Console.WriteLine("Dropping car price to: ${0}", currentPrice - priceDrop);
+                                    Console.WriteLine("Dropping car price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
                                 break;
 
@@ -138,7 +138,7 @@
                                     }
 
                                     GetWC().AddSeats(tx, FLIGHT, 0, currentPrice - priceDrop);
-                                    Console.WriteLine("Dropping seat price to: ${0}", currentPrice - priceDrop);
+                                    Console.WriteLine("Dropping seat price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
                                 break;
 
@@ -152,7 +152,7 @@
                                     }
 
                                     GetWC().AddRooms(tx, LOCATION, 0, currentPrice - priceDrop);
-                                    Console.WriteLine("Dropping room price to: ${0}", currentPrice - priceDrop);
+                                    Console.WriteLine("Dropping room price by ${0} to ${1}", priceDrop, currentPrice - priceDrop);
                                 }
                                 break;
                         }

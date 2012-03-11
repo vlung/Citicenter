@@ -548,7 +548,7 @@
             PrintSeparator();
 
             string itinerary = GetWC().QueryItinerary(tx, customerData[0]);
-            Console.WriteLine("{0}: Customer {1} reservert {2}", tx, customerData[0], itinerary);
+            Console.WriteLine("{0}: Customer {1} reserved {2}", tx, customerData[0], itinerary);
             int price = GetWC().QueryItineraryPrice(tx, customerData[0]);
             Console.WriteLine("{0}: Customer {1} will pay ${2}", tx, customerData[0], price);
 
