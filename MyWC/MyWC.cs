@@ -64,7 +64,17 @@ namespace MyWC
 
                 Commit(tid);
             }
+            catch (AbortTransationException)
+            {
+                Abort(tid);
+                return false;
+            }
             catch (ArgumentException)
+            {
+                Abort(tid);
+                return false;
+            }
+            catch (DeadLockDetected)
             {
                 Abort(tid);
                 return false;
@@ -94,7 +104,17 @@ namespace MyWC
                 Rooms.UnReserve(xid, customer);
                 Commit(xid);
             }
+            catch (AbortTransationException)
+            {
+                Abort(xid);
+                return false;
+            }
             catch (ArgumentException)
+            {
+                Abort(xid);
+                return false;
+            }
+            catch (DeadLockDetected)
             {
                 Abort(xid);
                 return false;

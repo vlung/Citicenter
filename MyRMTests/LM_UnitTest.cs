@@ -36,7 +36,7 @@ namespace MyRMTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(MyLM.DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
+        [ExpectedException(typeof(DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
         public void LM_GetReadlockOnResLockedWithWriteLock()
         {
             MyLM lm = new MyLM();
@@ -51,7 +51,7 @@ namespace MyRMTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(MyLM.DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
+        [ExpectedException(typeof(DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
         public void LM_GetWritelockOnResLockedWithWriteLock()
         {
             MyLM lm = new MyLM();
@@ -66,7 +66,7 @@ namespace MyRMTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(MyLM.DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
+        [ExpectedException(typeof(DeadLockDetected), "Deadlock exception should be thrown since another transaction already has a write lock on the resource.")]
         public void LM_GetWritelockOnResLockedWithReadLock()
         {
             MyLM lm = new MyLM();
@@ -131,7 +131,7 @@ namespace MyRMTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(MyLM.DeadLockDetected), "Deadlock exception should be thrown since another transaction still have a read lock on the resource")]
+        [ExpectedException(typeof(DeadLockDetected), "Deadlock exception should be thrown since another transaction still have a read lock on the resource")]
         public void LM_UpgradeReadLockToWriteLock3()
         {
             MyLM lm = new MyLM();
@@ -147,7 +147,7 @@ namespace MyRMTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(MyLM.DeadLockDetected), "Deadlock exception should be thrown since another transaction still have a write lock on the resource")]
+        [ExpectedException(typeof(DeadLockDetected), "Deadlock exception should be thrown since another transaction still have a write lock on the resource")]
         public void LM_UpgradeReadLockToWriteLock4()
         {
             MyLM lm = new MyLM();
@@ -185,7 +185,7 @@ namespace MyRMTests
                 bundle.lm.UnlockAll(t);
                 bundle.status = 0;
             }
-            catch (MyLM.DeadLockDetected)
+            catch (DeadLockDetected)
             {
                 bundle.status = 1;
             }
