@@ -54,4 +54,31 @@ namespace TP
         {
         }
     }
+
+    [System.Serializable()]
+    public class DeadLockDetected : System.Exception
+    {
+        public DeadLockDetected()
+            : base()
+        {
+        }
+
+        public DeadLockDetected(string message)
+            : base(message)
+        {
+        }
+
+        public DeadLockDetected(string message, System.Exception e)
+            : base(message, e)
+        {
+        }
+
+        // Constructor: This one is needed for exception serialization
+        public DeadLockDetected(
+            System.Runtime.Serialization.SerializationInfo info,
+            System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
 }

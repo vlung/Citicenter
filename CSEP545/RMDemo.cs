@@ -29,38 +29,32 @@
         {
             // clean up
             DeleteDataFiles();
+            Console.Clear();
 
             // start WC, TM, and RoomRM
+            PrintHeader("RM FAILURE HANDLING DEMO");
             StartAll();
-            Pause();
 
-            // add some data
             AddRoomData();
-            ReadAllRoomData(null);
-            Pause();
-
-            // add data and abort
-            AddRoomDataAndAbort();
-            ReadAllRoomData(null);
+            PrintRoomInventory(null);
             Pause();
 
             // concurrent read
             ReadConcurrently();
-            ReadAllRoomData(null);
             Pause();
 
             // dealock
             Deadlock();
-            ReadAllRoomData(null);
             Pause();
 
             // rm dies
             CrashDuringCommit();
-            ReadAllRoomData(null);
             Pause();
 
             // shut down
             StopAll();
+
+            PrintHeader("DONE RM FAILURE DEMO");
             Pause();
         }
 
@@ -70,58 +64,30 @@
 
         private void AddRoomData()
         {
-            Console.WriteLine("Populate RM with some data:");
-            Console.WriteLine("---------------------------");
-
             Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
-            
             foreach (string[] data in roomData1)
             {
                 GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
-                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
             }
             GetWC().Commit(tx);
-            Console.WriteLine("{0}: Commited", tx);
-        }
-
-        private void AddRoomDataAndAbort()
-        {
-            Console.WriteLine("Try to add more data to RM:");
-            Console.WriteLine("---------------------------");
-
-            Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
-            
-            foreach (string[] data in roomData2)
-            {
-                GetWC().AddRooms(tx, data[0], int.Parse(data[1]), int.Parse(data[2]));
-                Console.WriteLine("{0}: Added {2} rooms for {3} in {1}", tx, data[0], data[1], data[2]);
-            }
-
-            ReadAllRoomData(tx);
-
-            GetWC().Abort(tx);
-            Console.WriteLine("{0}: Aborted", tx);
         }
 
         private void CrashDuringCommit()
         {
-            Console.WriteLine("Failure Handling:");
-            Console.WriteLine("---------------------------");
+            Console.Clear();
+            PrintHeader("Failure Handling on RM crash");
+            PrintRoomInventory(null);
 
-            Transaction tx1 = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx1);
-
+            Transaction tx1 = StartAndLogTransaction();
             bool result = GetWC().AddRooms(tx1, roomData1[0][0], 5, int.Parse(roomData1[0][2]));
             if (result)
             {
                 Console.WriteLine("{0}: Adding {1} rooms in {2} for {3}", tx1, 5, roomData1[0][0], roomData1[0][2]);
-                ReadAllRoomData(tx1);
+                PrintRoomInventory(tx1);
             }
-
-            Console.WriteLine("{0}: Call RM.SelfDestruct(2)", tx1);
+            
             GetRoomsRM().SelfDestruct(2);
+            Console.WriteLine("{0}: Called RM.SelfDestruct(2)", tx1);
             Pause();
 
             try
@@ -135,23 +101,23 @@
                 Console.WriteLine("{0}: {1}", tx1, e.Message);
             }
 
-            Pause();
+            Pause("Restart Rooms RM");
             StartRoomsRM();
+            System.Threading.Thread.Sleep(2000);
+            PrintRoomInventory(null);
             Pause();
-            ReadAllRoomData(null);
 
-            tx1 = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx1);
+            tx1 = StartAndLogTransaction();
 
             result = GetWC().AddRooms(tx1, roomData1[0][0], 5, int.Parse(roomData1[0][2]));
             if (result)
             {
                 Console.WriteLine("{0}: Adding {1} rooms in {2} for {3}", tx1, 5, roomData1[0][0], roomData1[0][2]);
-                ReadAllRoomData(tx1);
+                PrintRoomInventory(tx1);
             }
 
-            Console.WriteLine("{0}: Call RM.SelfDestruct(10)", tx1);
             GetRoomsRM().SelfDestruct(10);
+            Console.WriteLine("{0}: Called RM.SelfDestruct(10)", tx1);
             Pause();
 
             try
@@ -165,37 +131,36 @@
                 Console.WriteLine("{0}: {1}", tx1, e.Message);
             }
 
-            Pause();
+            Pause("Start Rooms RM");
             StartRoomsRM();
-            Pause();
+            System.Threading.Thread.Sleep(2000);
+            PrintRoomInventory(null);
         }
 
         private void Deadlock()
         {
-            Console.WriteLine("Concurrent read and write:");
-            Console.WriteLine("---------------------------");
+            Console.Clear();
+            PrintHeader("Concurrent read and write");
+            PrintRoomInventory(null);
 
-            Transaction tx1 = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx1);
-
+            Transaction tx1 = StartAndLogTransaction();
             bool result = GetWC().DeleteRooms(tx1, roomData1[0][0], 5);
             if (result)
             {
-                Console.WriteLine("{0}: Deleting {1} rooms in {2}", tx1, 5, roomData1[0][0]);
+                Console.WriteLine("{0}: Deleted {1} rooms in {2}", tx1, 5, roomData1[0][0]);
             }
             Pause();
 
-            Transaction tx2 = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx2);
+            Transaction tx2 = StartAndLogTransaction();
             while (true)
             {
                 try
                 {
+                    Console.WriteLine("{0}: Trying to query number of rooms in {1}", tx2, roomData1[0][0]);
                     int roomCount = GetWC().QueryRoom(tx2, roomData1[0][0]);
-                    Console.WriteLine("{0}: There are {1} rooms in {2}", tx1, roomCount, roomData1[0][0]);
-                    
-                    GetWC().Commit(tx2);
-                    Console.WriteLine("{0}: Commited", tx2);
+                    Console.WriteLine("{0}: There are {1} rooms in {2}", tx2, roomCount, roomData1[0][0]);
+
+                    CommitAndLogTransaction(tx2);
 
                     break;
                 }
@@ -206,19 +171,21 @@
                     string line = Console.ReadLine();
                     if (line == "unblock")
                     {
-                        GetWC().Commit(tx1);
-                        Console.WriteLine("{0}: Commited", tx1);
+                        CommitAndLogTransaction(tx1);
                     }
                 }
             }
+
+            PrintRoomInventory(null);
         }
 
         private void ReadConcurrently()
         {
-            Console.WriteLine("Concurrent read of a resource:");
-            Console.WriteLine("---------------------------");
+            Console.Clear();
+            PrintHeader("Concurrent read of a resource:");
+            PrintRoomInventory(null);
 
-            Transaction tx1 = GetWC().Start();
+            Transaction tx1 = StartAndLogTransaction();
             Console.WriteLine("{0}: Started", tx1);
 
             Transaction tx2 = GetWC().Start();
@@ -232,34 +199,9 @@
 
             Pause();
 
-            GetWC().Abort(tx1);
-            Console.WriteLine("{0}: Aborted", tx1);
-            GetWC().Abort(tx2);
-            Console.WriteLine("{0}: Aborted", tx2);
-        }
-
-        private void ReadAllRoomData(Transaction context)
-        {
-            Console.WriteLine("Rooms Inventory:");
-
-            Transaction tx = context;
-            if (null == context)
-            {
-                tx = GetWC().Start();
-                Console.WriteLine("{0}: Started", tx);
-            }
-
-            string[] rooms = GetWC().ListRooms(tx);
-            foreach (string room in rooms)
-            {
-                Console.WriteLine("{0}: {1}", tx, room);
-            }
-
-            if (null == context)
-            {
-                GetWC().Commit(tx);
-                Console.WriteLine("{0}: Commited", tx);
-            }
+            AbortAndLogTransaction(tx1);
+            AbortAndLogTransaction(tx2);
+            PrintRoomInventory(null);
         }
 
 

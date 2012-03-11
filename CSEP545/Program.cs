@@ -22,6 +22,9 @@ namespace CSEP545
             TPDemo tpDemo = new TPDemo();
             tpDemo.ExecuteAll();
 
+            DutchAuctionDemo daDemo = new DutchAuctionDemo();
+            daDemo.ExecuteAll();
+
             // bring up the interactive client            
             CommandLineClient client = new CommandLineClient("localhost", 8086);
             client.ExecuteAll();

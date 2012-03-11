@@ -29,8 +29,10 @@
         {
             // clean up
             DeleteDataFiles();
+            Console.Clear();
 
             // start WC, TM, and RoomRM
+            PrintHeader("TM FAILURE HANDLING DEMO");
             StartAll();
             Pause();
 
@@ -48,6 +50,7 @@
 
             // shut down
             StopAll();
+            PrintHeader("DONE TM FAILURE DEMO");
             Pause();
         }
 
@@ -57,11 +60,11 @@
 
         private void PreparedWithNoResponse()
         {
-            Console.WriteLine("RM response NO to Request to Prepare:");
-            Console.WriteLine("-------------------------------------");
+            Console.Clear();
+            PrintHeader("RM response NO to Request to Prepare");
+            PrintRoomInventory(null);
 
-            Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
+            Transaction tx = StartAndLogTransaction();
 
             foreach (string[] data in roomData1)
             {
@@ -73,17 +76,17 @@
             GetRoomsRM().SetCommitFailure(false);
             GetRoomsRM().SetAbortFailure(false);
 
-            GetWC().Commit(tx);
-            Console.WriteLine("{0}: Aborted", tx);
+            CommitAndLogTransaction(tx);
+            PrintRoomInventory(null);
         }
 
         private void PreparedWithTimeout()
         {
-            Console.WriteLine("RM times out to Request to Prepare:");
-            Console.WriteLine("-----------------------------------");
+            Console.Clear();
+            PrintHeader("RM times out to Request to Prepare");
+            PrintRoomInventory(null);
 
-            Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
+            Transaction tx = StartAndLogTransaction();
 
             foreach (string[] data in roomData1)
             {
@@ -95,17 +98,17 @@
             GetRoomsRM().SetCommitFailure(false);
             GetRoomsRM().SetAbortFailure(false);
 
-            GetWC().Commit(tx);
-            Console.WriteLine("{0}: Aborted", tx);
+            CommitAndLogTransaction(tx);
+            PrintRoomInventory(null);
         }
 
         private void CommitTimesOut()
         {
-            Console.WriteLine("RM times out on Commit:");
-            Console.WriteLine("-----------------------");
+            Console.Clear();
+            PrintHeader("RM times out on Commit");
+            PrintRoomInventory(null);
 
-            Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
+            Transaction tx = StartAndLogTransaction();
 
             foreach (string[] data in roomData1)
             {
@@ -127,15 +130,16 @@
             Pause("Wait for TM to do the re-commit. Press Enter when done");
 
             Console.WriteLine("{0}: Committed", tx);
+            PrintRoomInventory(null);
         }
 
         private void AbortTimesOut()
         {
-            Console.WriteLine("RM times out on Abort:");
-            Console.WriteLine("----------------------");
+            Console.Clear();
+            PrintHeader("RM times out on Abort:");
+            PrintRoomInventory(null);
 
-            Transaction tx = GetWC().Start();
-            Console.WriteLine("{0}: Started", tx);
+            Transaction tx = StartAndLogTransaction();
 
             foreach (string[] data in roomData1)
             {

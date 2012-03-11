@@ -571,6 +571,8 @@
 
         private void TestItineraryCancelMethod()
         {
+            Console.WriteLine("Cancel reservation:");
+            PrintSeparator();
             GetWC().CancelItinerary(customerData[0]);
             Console.WriteLine("Customer {0} canceled reservation.", customerData[0]);
 
